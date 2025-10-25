@@ -1,1 +1,7 @@
 project_id = "kikhhpukutwnegtzvavt"
+
+[functions.youtube-videos]
+verify_jwt = false
+
+[functions.youtube-channel-info]
+verify_jwt = false
