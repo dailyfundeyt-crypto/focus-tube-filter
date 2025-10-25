@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChannelList } from "@/components/ChannelList";
 import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
+import { InstallPWA } from "@/components/InstallPWA";
 import { Youtube } from "lucide-react";
 
 const Index = () => {
@@ -56,6 +57,7 @@ const Index = () => {
           </main>
         </div>
       </div>
+      <InstallPWA />
     </div>
   );
 };

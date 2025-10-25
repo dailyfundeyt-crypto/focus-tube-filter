@@ -1,6 +1,16 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ExternalLink } from "lucide-react";
+import { Play, CheckCircle2, ArrowUpDown } from "lucide-react";
+import { VideoPlayer } from "./VideoPlayer";
+import { useWatchedVideos } from "@/hooks/useWatchedVideos";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Video {
   id: string;
@@ -24,6 +34,13 @@ interface VideoGridProps {
 }
 
 export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
+  const [selectedVideo, setSelectedVideo] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const { markAsWatched, isWatched, toggleWatched } = useWatchedVideos();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["videos", channelId],
     queryFn: async () => {
@@ -36,6 +53,14 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     },
     enabled: !!channelId,
   });
+
+  const sortedVideos = data
+    ? [...data].sort((a, b) => {
+        const dateA = new Date(a.snippet.publishedAt).getTime();
+        const dateB = new Date(b.snippet.publishedAt).getTime();
+        return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -60,7 +85,7 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     );
   }
 
-  if (!data || data.length === 0) {
+  if (!sortedVideos || sortedVideos.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <p>Keine langen Videos gefunden</p>
@@ -91,44 +116,92 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold">{channelName}</h2>
-        <p className="text-muted-foreground">
-          {data.length} {data.length === 1 ? "Video" : "Videos"}
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">{channelName}</h2>
+          <p className="text-muted-foreground">
+            {sortedVideos.length} {sortedVideos.length === 1 ? "Video" : "Videos"}
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <ArrowUpDown className="h-4 w-4" />
+              {sortOrder === "newest" ? "Neueste zuerst" : "Älteste zuerst"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setSortOrder("newest")}>
+              Neueste zuerst
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
+              Älteste zuerst
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.map((video) => (
-          <a
-            key={video.id}
-            href={`https://www.youtube.com/watch?v=${video.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group space-y-3 transition-transform hover:scale-[1.02]"
-          >
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-card">
-              <img
-                src={video.snippet.thumbnails.medium.url}
-                alt={video.snippet.title}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                <ExternalLink className="text-white opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8" />
+        {sortedVideos.map((video) => {
+          const watched = isWatched(video.id);
+          return (
+            <div key={video.id} className="group space-y-3">
+              <div
+                onClick={() => setSelectedVideo({ id: video.id, title: video.snippet.title })}
+                className="relative aspect-video rounded-lg overflow-hidden bg-card cursor-pointer"
+              >
+                <img
+                  src={video.snippet.thumbnails.medium.url}
+                  alt={video.snippet.title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                  <Play className="text-white opacity-0 group-hover:opacity-100 transition-opacity h-12 w-12" />
+                </div>
+                {watched && (
+                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                    <CheckCircle2 className="h-5 w-5 text-white" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="font-medium line-clamp-2 group-hover:text-primary transition-colors">
+                  {video.snippet.title}
+                </h3>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    {formatViews(video.statistics.viewCount)} Aufrufe •{" "}
+                    {formatDate(video.snippet.publishedAt)}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWatched(video.id);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <CheckCircle2
+                      className={`h-5 w-5 ${
+                        watched ? "fill-green-500 text-green-500" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
-            <div>
-              <h3 className="font-medium line-clamp-2 group-hover:text-primary transition-colors">
-                {video.snippet.title}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {formatViews(video.statistics.viewCount)} Aufrufe •{" "}
-                {formatDate(video.snippet.publishedAt)}
-              </p>
-            </div>
-          </a>
-        ))}
+          );
+        })}
       </div>
+      <VideoPlayer
+        videoId={selectedVideo?.id || null}
+        videoTitle={selectedVideo?.title || ""}
+        onClose={() => setSelectedVideo(null)}
+        onVideoEnd={() => {
+          if (selectedVideo) {
+            markAsWatched(selectedVideo.id);
+          }
+        }}
+      />
     </div>
   );
 };
