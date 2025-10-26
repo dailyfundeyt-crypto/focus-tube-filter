@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, CheckCircle2, ArrowUpDown } from "lucide-react";
@@ -50,10 +50,14 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     isFetchingNextPage,
   } = useInfiniteQuery<{ videos: Video[]; nextPageToken?: string | null }, Error>({
     initialPageParam: null,
-    queryKey: ["videos", channelId],
+    queryKey: ["videos", channelId, sortOrder],
     queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase.functions.invoke("youtube-videos", {
-        body: { channelId, pageToken: pageParam ?? null },
+        body: { 
+          channelId, 
+          pageToken: pageParam ?? null,
+          order: sortOrder === "newest" ? "date" : "date"
+        },
       });
 
       if (error) throw error;
@@ -63,8 +67,16 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     enabled: !!channelId,
   });
 
+  // Auto-load all pages when switching to "oldest" sort order
+  useEffect(() => {
+    if (sortOrder === "oldest" && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [sortOrder, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   const allVideos = data ? data.pages.flatMap((p) => p.videos as Video[]) : [];
 
+  // Sort videos based on user preference
   const sortedVideos = allVideos.length
     ? [...allVideos].sort((a, b) => {
         const dateA = new Date(a.snippet.publishedAt).getTime();
