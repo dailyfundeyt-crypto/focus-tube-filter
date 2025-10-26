@@ -57,34 +57,26 @@ serve(async (req) => {
     const detailsResponse = await fetch(detailsUrl);
     const detailsData = await detailsResponse.json();
 
-    // Filter out Shorts by checking video definition and aspect ratio
-    // Shorts are typically vertical (9:16) while normal videos are horizontal (16:9)
-    const nonShortVideos = (detailsData.items || []).filter((video: any) => {
-      const contentDetails = video?.contentDetails;
-      if (!contentDetails) return false;
-      
-      // Shorts have specific characteristics:
-      // 1. They are in 'rectangular' projection (like regular videos)
-      // 2. But we can filter by duration - YouTube Shorts are max 60 seconds
-      // However, vertical videos can be longer, so we check snippet dimensions if available
-      const duration = contentDetails.duration || '';
-      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-      if (!match) return true;
-      
-      const hours = parseInt(match[1] || '0');
-      const minutes = parseInt(match[2] || '0');
-      const seconds = parseInt(match[3] || '0');
-      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      
-      // YouTube Shorts are defined as videos under 60 seconds in vertical format
-      // We'll be conservative and filter videos under 61 seconds as they're likely Shorts
-      return totalSeconds > 60;
+    // Filter: nur 16:9 (keine vertikalen Shorts), keine Längenbeschränkung
+    const isLandscape = (thumb?: { width?: number; height?: number }) => {
+      if (!thumb?.width || !thumb?.height) return true; // wenn unbekannt, behalten
+      const ratio = thumb.width / thumb.height;
+      return ratio >= 1.3; // grobe Schwelle für Landscape (16:9 ≈ 1.78)
+    };
+
+    const pickThumb = (thumbs: any) =>
+      thumbs?.maxres || thumbs?.standard || thumbs?.high || thumbs?.medium || thumbs?.default;
+
+    const filteredVideos = (detailsData.items || []).filter((video: any) => {
+      const thumbs = video?.snippet?.thumbnails;
+      const t = pickThumb(thumbs);
+      return isLandscape(t);
     });
 
-    console.log(`Filtered ${nonShortVideos.length} non-short videos from ${detailsData.items?.length || 0} total videos`);
+    console.log(`Filtered ${filteredVideos.length} landscape videos from ${detailsData.items?.length || 0} total videos`);
 
     return new Response(
-      JSON.stringify({ videos: nonShortVideos, nextPageToken }),
+      JSON.stringify({ videos: filteredVideos, nextPageToken }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
