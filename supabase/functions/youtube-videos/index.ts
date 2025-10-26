@@ -45,24 +45,17 @@ serve(async (req) => {
     const detailsResponse = await fetch(detailsUrl);
     const detailsData = await detailsResponse.json();
 
-    // Filter out shorts (videos shorter than 60 seconds)
-    const longVideos = detailsData.items.filter((video: any) => {
-      const duration = video.contentDetails.duration;
-      // Parse ISO 8601 duration format (e.g., PT1M30S = 1 minute 30 seconds)
-      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-      const hours = parseInt(match[1] || '0');
-      const minutes = parseInt(match[2] || '0');
-      const seconds = parseInt(match[3] || '0');
-      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      
-      // Only include videos longer than 60 seconds
-      return totalSeconds > 60;
+    // Filter out shorts (vertical videos) - only keep rectangular (16:9) videos
+    const rectangularVideos = detailsData.items.filter((video: any) => {
+      // rectangular = 16:9 format (normal videos)
+      // Shorts are typically vertical format
+      return video.contentDetails.projection === 'rectangular';
     });
 
-    console.log(`Filtered ${longVideos.length} long videos from ${detailsData.items.length} total videos`);
+    console.log(`Filtered ${rectangularVideos.length} rectangular videos from ${detailsData.items.length} total videos`);
 
     return new Response(
-      JSON.stringify({ videos: longVideos }),
+      JSON.stringify({ videos: rectangularVideos }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
