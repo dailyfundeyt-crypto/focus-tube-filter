@@ -24,8 +24,8 @@ serve(async (req) => {
 
     console.log('Fetching videos for channel:', channelId);
 
-    // Fetch videos from the channel
-    const videosUrl = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=20&type=video&videoDuration=medium`;
+    // Fetch videos from the channel (maxResults=50 is the API limit per request)
+    const videosUrl = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=snippet&order=date&maxResults=50&type=video`;
     
     const videosResponse = await fetch(videosUrl);
     
