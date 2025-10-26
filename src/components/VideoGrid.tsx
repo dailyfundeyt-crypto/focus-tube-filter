@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, CheckCircle2, ArrowUpDown } from "lucide-react";
 import { VideoPlayer } from "./VideoPlayer";
@@ -41,21 +41,32 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const { markAsWatched, isWatched, toggleWatched } = useWatchedVideos();
 
-  const { data, isLoading, error } = useQuery({
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<{ videos: Video[]; nextPageToken?: string | null }, Error>({
+    initialPageParam: null,
     queryKey: ["videos", channelId],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase.functions.invoke("youtube-videos", {
-        body: { channelId },
+        body: { channelId, pageToken: pageParam ?? null },
       });
 
       if (error) throw error;
-      return data.videos as Video[];
+      return data as { videos: Video[]; nextPageToken?: string | null };
     },
+    getNextPageParam: (lastPage) => lastPage?.nextPageToken || undefined,
     enabled: !!channelId,
   });
 
-  const sortedVideos = data
-    ? [...data].sort((a, b) => {
+  const allVideos = data ? data.pages.flatMap((p) => p.videos as Video[]) : [];
+
+  const sortedVideos = allVideos.length
+    ? [...allVideos].sort((a, b) => {
         const dateA = new Date(a.snippet.publishedAt).getTime();
         const dateB = new Date(b.snippet.publishedAt).getTime();
         return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
@@ -192,6 +203,13 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
           );
         })}
       </div>
+      {hasNextPage && (
+        <div className="mt-6 flex justify-center">
+          <Button variant="outline" size="sm" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+            {isFetchingNextPage ? "Lädt..." : "Mehr laden"}
+          </Button>
+        </div>
+      )}
       <VideoPlayer
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
