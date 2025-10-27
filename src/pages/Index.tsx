@@ -45,8 +45,16 @@ const Index = () => {
 
       const videos = data.videos || [];
       
+      // Delete old cached videos for this channel first
+      await supabase
+        .from("cached_videos")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("channel_id", selectedChannel.id);
+      
+      // Insert new videos
       for (const video of videos) {
-        await supabase.from("cached_videos").upsert({
+        await supabase.from("cached_videos").insert({
           user_id: user.id,
           channel_id: selectedChannel.id,
           video_id: video.id,
@@ -54,12 +62,10 @@ const Index = () => {
           thumbnail: video.snippet.thumbnails.medium.url,
           published_at: video.snippet.publishedAt,
           video_url: `https://www.youtube.com/watch?v=${video.id}`,
-        }, {
-          onConflict: 'user_id,video_id'
         });
       }
 
-      toast({ title: "Videos aktualisiert!" });
+      toast({ title: "Videos aktualisiert!", description: `${videos.length} Videos geladen` });
     } catch (error: any) {
       toast({
         title: "Fehler",
@@ -85,7 +91,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={logo} alt="Logo" className="h-10 w-10" />
+              <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
               <h1 className="text-xl font-semibold">YouTube Viewer</h1>
             </div>
             <div className="flex items-center gap-2">

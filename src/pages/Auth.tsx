@@ -68,7 +68,7 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-lg border-border">
         <CardHeader className="text-center space-y-4">
-          <img src={logo} alt="YouTube Viewer Logo" className="w-32 h-32 mx-auto" />
+          <img src={logo} alt="YouTube Viewer Logo" className="w-32 h-auto mx-auto object-contain" />
           <CardTitle className="text-2xl font-semibold">
             {isLogin ? "Anmelden" : "Registrieren"}
           </CardTitle>

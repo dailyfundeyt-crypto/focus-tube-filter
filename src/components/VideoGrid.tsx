@@ -44,8 +44,8 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
   const { markAsWatched } = useWatchedVideos();
   const { user } = useAuth();
 
-  const { data: cachedVideos, isLoading, error } = useQuery({
-    queryKey: ["cached-videos", channelId, user?.id],
+  const { data: cachedVideos, isLoading, error, refetch } = useQuery({
+    queryKey: ["cached-videos", channelId, user?.id, sortOrder],
     queryFn: async () => {
       if (!user) return [];
       
@@ -53,14 +53,55 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
         .from("cached_videos")
         .select("*")
         .eq("user_id", user.id)
-        .eq("channel_id", channelId)
-        .order("published_at", { ascending: sortOrder === "oldest" });
+        .eq("channel_id", channelId);
 
       if (error) throw error;
       return data || [];
     },
     enabled: !!channelId && !!user,
   });
+
+  // Auto-fetch videos on first load if cache is empty
+  useEffect(() => {
+    const loadInitialVideos = async () => {
+      if (!user || !channelId || !cachedVideos) return;
+      if (cachedVideos.length > 0) return; // Already have cached videos
+
+      try {
+        const { data, error } = await supabase.functions.invoke("youtube-videos", {
+          body: { 
+            channelId,
+            pageToken: null,
+            order: "date"
+          },
+        });
+
+        if (error) throw error;
+
+        const videos = data.videos || [];
+        
+        for (const video of videos) {
+          await supabase.from("cached_videos").upsert({
+            user_id: user.id,
+            channel_id: channelId,
+            video_id: video.id,
+            title: video.snippet.title,
+            thumbnail: video.snippet.thumbnails.medium.url,
+            published_at: video.snippet.publishedAt,
+            video_url: `https://www.youtube.com/watch?v=${video.id}`,
+          }, {
+            onConflict: 'user_id,video_id'
+          });
+        }
+        
+        refetch();
+      } catch (err) {
+        console.error("Error loading initial videos:", err);
+      }
+    };
+
+    loadInitialVideos();
+  }, [channelId, user, cachedVideos, refetch]);
 
   const sortedVideos = cachedVideos
     ? [...cachedVideos].sort((a, b) => {
