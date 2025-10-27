@@ -8,6 +8,40 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Light Mode - Apple Style */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 263 70% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 263 70% 50%;
+
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* Dark Mode - Apple Style */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
 
@@ -35,8 +69,6 @@ All colors MUST be HSL.
     --border: 240 6% 20%;
     --input: 240 6% 20%;
     --ring: 263 70% 50%;
-
-    --radius: 0.75rem;
   }
 }
 

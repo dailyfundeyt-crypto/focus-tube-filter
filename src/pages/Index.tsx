@@ -1,23 +1,111 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChannelList } from "@/components/ChannelList";
 import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
 import { InstallPWA } from "@/components/InstallPWA";
-import { Youtube } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { LogOut, RefreshCw, Youtube } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import logo from "@/assets/logo.png";
 
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  const handleRefreshVideos = async () => {
+    if (!selectedChannel || !user) return;
+    
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("youtube-videos", {
+        body: { 
+          channelId: selectedChannel.id,
+          pageToken: null,
+          order: "date"
+        },
+      });
+
+      if (error) throw error;
+
+      const videos = data.videos || [];
+      
+      for (const video of videos) {
+        await supabase.from("cached_videos").upsert({
+          user_id: user.id,
+          channel_id: selectedChannel.id,
+          video_id: video.id,
+          title: video.snippet.title,
+          thumbnail: video.snippet.thumbnails.medium.url,
+          published_at: video.snippet.publishedAt,
+          video_url: `https://www.youtube.com/watch?v=${video.id}`,
+        }, {
+          onConflict: 'user_id,video_id'
+        });
+      }
+
+      toast({ title: "Videos aktualisiert!" });
+    } catch (error: any) {
+      toast({
+        title: "Fehler",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">Lädt...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Youtube className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold">Fokussierter YouTube Viewer</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Logo" className="h-10 w-10" />
+              <h1 className="text-xl font-semibold">YouTube Viewer</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedChannel && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshVideos}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  Updaten
+                </Button>
+              )}
+              <ThemeToggle />
+              <Button variant="outline" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Abmelden
+              </Button>
+            </div>
           </div>
         </div>
       </header>

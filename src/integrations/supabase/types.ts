@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      cached_videos: {
+        Row: {
+          cached_at: string | null
+          channel_id: string
+          id: string
+          published_at: string | null
+          thumbnail: string | null
+          title: string
+          user_id: string
+          video_id: string
+          video_url: string
+        }
+        Insert: {
+          cached_at?: string | null
+          channel_id: string
+          id?: string
+          published_at?: string | null
+          thumbnail?: string | null
+          title: string
+          user_id: string
+          video_id: string
+          video_url: string
+        }
+        Update: {
+          cached_at?: string | null
+          channel_id?: string
+          id?: string
+          published_at?: string | null
+          thumbnail?: string | null
+          title?: string
+          user_id?: string
+          video_id?: string
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cached_videos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       youtube_channels: {
         Row: {
           added_at: string
