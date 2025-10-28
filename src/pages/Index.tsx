@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ChannelList } from "@/components/ChannelList";
 import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
@@ -21,6 +22,18 @@ const Index = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const { data: channels } = useQuery({
+    queryKey: ["channels"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("youtube_channels")
+        .select("*")
+        .order("added_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -106,13 +119,13 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
-              <h1 className="text-xl font-semibold">YouTube Viewer</h1>
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
+              <img src={logo} alt="Logo" className="h-8 md:h-10 w-auto object-contain" />
+              <h1 className="text-lg md:text-xl font-semibold">YouTube Viewer</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               {selectedChannel && (
                 <Button
                   variant="outline"
@@ -125,9 +138,12 @@ const Index = () => {
                 </Button>
               )}
               <ThemeToggle />
-              <Button variant="outline" size="sm" onClick={signOut}>
+              <Button variant="outline" size="sm" onClick={signOut} className="hidden md:flex">
                 <LogOut className="h-4 w-4 mr-2" />
                 Abmelden
+              </Button>
+              <Button variant="outline" size="sm" onClick={signOut} className="md:hidden">
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -135,14 +151,40 @@ const Index = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-[300px_1fr] gap-8">
+        <div className="grid lg:grid-cols-[280px_1fr] gap-6">
           {/* Sidebar */}
           <aside className="space-y-4">
             <AddChannelDialog />
-            <ChannelList
-              onChannelSelect={(id, name) => setSelectedChannel({ id, name })}
-              selectedChannelId={selectedChannel?.id || null}
-            />
+            <div className="lg:block hidden">
+              <ChannelList
+                onChannelSelect={(id, name) => setSelectedChannel({ id, name })}
+                selectedChannelId={selectedChannel?.id || null}
+              />
+            </div>
+            
+            {/* Mobile Channel Selector */}
+            <div className="lg:hidden">
+              <select
+                className="w-full p-3 rounded-lg border border-border bg-card text-foreground"
+                value={selectedChannel?.id || ""}
+                onChange={(e) => {
+                  const channelId = e.target.value;
+                  const channelName = e.target.options[e.target.selectedIndex].text;
+                  if (channelId) {
+                    setSelectedChannel({ id: channelId, name: channelName });
+                  } else {
+                    setSelectedChannel(null);
+                  }
+                }}
+              >
+                <option value="">Kanal auswählen...</option>
+                {channels?.map((channel) => (
+                  <option key={channel.id} value={channel.channel_id}>
+                    {channel.channel_name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </aside>
 
           {/* Main Content */}

@@ -61,66 +61,7 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     enabled: !!channelId && !!user,
   });
 
-  // Auto-fetch videos on first load if cache is empty
-  useEffect(() => {
-    const loadInitialVideos = async () => {
-      if (!user || !channelId || !cachedVideos) return;
-      if (cachedVideos.length > 0) return; // Already have cached videos
-
-      console.log("Loading initial videos for channel:", channelId);
-      
-      try {
-        let allVideos = [];
-        let pageToken = null;
-        let pageCount = 0;
-        
-        // Fetch all pages
-        do {
-          pageCount++;
-          console.log(`Fetching page ${pageCount}, token:`, pageToken);
-          
-          const { data, error } = await supabase.functions.invoke("youtube-videos", {
-            body: { 
-              channelId,
-              pageToken,
-              order: "date"
-            },
-          });
-
-          if (error) throw error;
-
-          const videos = data.videos || [];
-          allVideos.push(...videos);
-          pageToken = data.nextPageToken;
-          
-          console.log(`Page ${pageCount}: ${videos.length} videos, total so far: ${allVideos.length}`);
-        } while (pageToken && pageCount < 20); // Safety limit of 20 pages
-        
-        console.log(`Finished loading all pages. Total videos: ${allVideos.length}`);
-        
-        // Insert all videos in batches
-        for (const video of allVideos) {
-          await supabase.from("cached_videos").upsert({
-            user_id: user.id,
-            channel_id: channelId,
-            video_id: video.id,
-            title: video.snippet.title,
-            thumbnail: video.snippet.thumbnails.medium.url,
-            published_at: video.snippet.publishedAt,
-            video_url: `https://www.youtube.com/watch?v=${video.id}`,
-          }, {
-            onConflict: 'user_id,video_id'
-          });
-        }
-        
-        refetch();
-      } catch (err) {
-        console.error("Error loading initial videos:", err);
-      }
-    };
-
-    loadInitialVideos();
-  }, [channelId, user, cachedVideos, refetch]);
+  // Removed auto-fetch - now handled in AddChannelDialog
 
   const sortedVideos = cachedVideos
     ? [...cachedVideos].sort((a, b) => {
@@ -199,7 +140,7 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {videosAsApiFormat.map((video) => (
           <VideoCard
             key={video.id}
