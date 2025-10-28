@@ -67,20 +67,39 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
       if (!user || !channelId || !cachedVideos) return;
       if (cachedVideos.length > 0) return; // Already have cached videos
 
+      console.log("Loading initial videos for channel:", channelId);
+      
       try {
-        const { data, error } = await supabase.functions.invoke("youtube-videos", {
-          body: { 
-            channelId,
-            pageToken: null,
-            order: "date"
-          },
-        });
-
-        if (error) throw error;
-
-        const videos = data.videos || [];
+        let allVideos = [];
+        let pageToken = null;
+        let pageCount = 0;
         
-        for (const video of videos) {
+        // Fetch all pages
+        do {
+          pageCount++;
+          console.log(`Fetching page ${pageCount}, token:`, pageToken);
+          
+          const { data, error } = await supabase.functions.invoke("youtube-videos", {
+            body: { 
+              channelId,
+              pageToken,
+              order: "date"
+            },
+          });
+
+          if (error) throw error;
+
+          const videos = data.videos || [];
+          allVideos.push(...videos);
+          pageToken = data.nextPageToken;
+          
+          console.log(`Page ${pageCount}: ${videos.length} videos, total so far: ${allVideos.length}`);
+        } while (pageToken && pageCount < 20); // Safety limit of 20 pages
+        
+        console.log(`Finished loading all pages. Total videos: ${allVideos.length}`);
+        
+        // Insert all videos in batches
+        for (const video of allVideos) {
           await supabase.from("cached_videos").upsert({
             user_id: user.id,
             channel_id: channelId,

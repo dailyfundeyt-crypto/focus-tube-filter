@@ -33,17 +33,35 @@ const Index = () => {
     
     setIsRefreshing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("youtube-videos", {
-        body: { 
-          channelId: selectedChannel.id,
-          pageToken: null,
-          order: "date"
-        },
-      });
+      console.log("Refreshing videos for channel:", selectedChannel.id);
+      
+      let allVideos = [];
+      let pageToken = null;
+      let pageCount = 0;
+      
+      // Fetch all pages
+      do {
+        pageCount++;
+        console.log(`Refreshing page ${pageCount}, token:`, pageToken);
+        
+        const { data, error } = await supabase.functions.invoke("youtube-videos", {
+          body: { 
+            channelId: selectedChannel.id,
+            pageToken,
+            order: "date"
+          },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const videos = data.videos || [];
+        const videos = data.videos || [];
+        allVideos.push(...videos);
+        pageToken = data.nextPageToken;
+        
+        console.log(`Page ${pageCount}: ${videos.length} videos, total so far: ${allVideos.length}`);
+      } while (pageToken && pageCount < 20); // Safety limit of 20 pages
+      
+      console.log(`Finished refreshing all pages. Total videos: ${allVideos.length}`);
       
       // Delete old cached videos for this channel first
       await supabase
@@ -53,7 +71,7 @@ const Index = () => {
         .eq("channel_id", selectedChannel.id);
       
       // Insert new videos
-      for (const video of videos) {
+      for (const video of allVideos) {
         await supabase.from("cached_videos").insert({
           user_id: user.id,
           channel_id: selectedChannel.id,
@@ -65,7 +83,7 @@ const Index = () => {
         });
       }
 
-      toast({ title: "Videos aktualisiert!", description: `${videos.length} Videos geladen` });
+      toast({ title: "Videos aktualisiert!", description: `${allVideos.length} Videos geladen` });
     } catch (error: any) {
       toast({
         title: "Fehler",
