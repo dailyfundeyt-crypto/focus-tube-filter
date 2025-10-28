@@ -22,46 +22,64 @@ serve(async (req) => {
       throw new Error('Channel ID is required');
     }
 
-    console.log('Fetching videos for channel:', channelId);
+    console.log('Fetching videos for channel:', channelId, 'pageToken:', pageToken);
 
-    // Fetch videos from the channel with pagination support
-    let videosUrl = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=snippet&order=${order}&maxResults=50&type=video`;
+    // Get uploads playlist for the channel
+    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YOUTUBE_API_KEY}`;
+    const channelResp = await fetch(channelUrl);
+    if (!channelResp.ok) {
+      const errorData = await channelResp.text();
+      console.error('YouTube API (channels) error:', errorData);
+      throw new Error(`YouTube API error (channels): ${channelResp.status}`);
+    }
+    const channelData = await channelResp.json();
+    const uploadsPlaylistId = channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsPlaylistId) {
+      throw new Error('Uploads playlist not found for this channel');
+    }
+
+    // Fetch playlist items (this returns ALL uploads over multiple pages)
+    let playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?key=${YOUTUBE_API_KEY}&playlistId=${uploadsPlaylistId}&part=contentDetails,snippet&maxResults=50`;
     if (pageToken) {
-      videosUrl += `&pageToken=${pageToken}`;
-    }
-    
-    const videosResponse = await fetch(videosUrl);
-    
-    if (!videosResponse.ok) {
-      const errorData = await videosResponse.text();
-      console.error('YouTube API error:', errorData);
-      throw new Error(`YouTube API error: ${videosResponse.status}`);
+      playlistUrl += `&pageToken=${pageToken}`;
     }
 
-    const videosData = await videosResponse.json();
-    const nextPageToken = videosData.nextPageToken || null;
+    const playlistResp = await fetch(playlistUrl);
+    if (!playlistResp.ok) {
+      const errorData = await playlistResp.text();
+      console.error('YouTube API (playlistItems) error:', errorData);
+      throw new Error(`YouTube API error (playlistItems): ${playlistResp.status}`);
+    }
 
-    // Get video details to filter out shorts via duration
-    const ids = (videosData.items || [])
-      .map((item: any) => item?.id?.videoId)
+    const playlistData = await playlistResp.json();
+    const nextPageToken = playlistData.nextPageToken || null;
+    console.log(`Playlist items: ${playlistData.items?.length || 0}, nextPageToken: ${nextPageToken}`);
+
+    // Extract video IDs
+    const ids = (playlistData.items || [])
+      .map((item: any) => item?.contentDetails?.videoId)
       .filter(Boolean);
 
     if (!ids.length) {
+      console.log('No video IDs found in playlist page, returning empty result');
       return new Response(
         JSON.stringify({ videos: [], nextPageToken }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
+    console.log(`Getting details for ${ids.length} videos`);
     const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?key=${YOUTUBE_API_KEY}&id=${ids.join(',')}&part=contentDetails,snippet,statistics`;
     const detailsResponse = await fetch(detailsUrl);
     const detailsData = await detailsResponse.json();
+
+    console.log(`Got details for ${detailsData.items?.length || 0} videos`);
 
     // Filter: nur 16:9 (keine vertikalen Shorts), keine Längenbeschränkung
     const isLandscape = (thumb?: { width?: number; height?: number }) => {
       if (!thumb?.width || !thumb?.height) return true; // wenn unbekannt, behalten
       const ratio = thumb.width / thumb.height;
-      return ratio >= 1.3; // grobe Schwelle für Landscape (16:9 ≈ 1.78)
+      return ratio >= 1.6; // enger auf 16:9 ausrichten
     };
 
     const pickThumb = (thumbs: any) =>
