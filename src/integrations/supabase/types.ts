@@ -83,6 +83,7 @@ export type Database = {
           channel_name: string
           channel_thumbnail: string | null
           id: string
+          user_id: string
         }
         Insert: {
           added_at?: string
@@ -90,6 +91,7 @@ export type Database = {
           channel_name: string
           channel_thumbnail?: string | null
           id?: string
+          user_id: string
         }
         Update: {
           added_at?: string
@@ -97,6 +99,7 @@ export type Database = {
           channel_name?: string
           channel_thumbnail?: string | null
           id?: string
+          user_id?: string
         }
         Relationships: []
       }

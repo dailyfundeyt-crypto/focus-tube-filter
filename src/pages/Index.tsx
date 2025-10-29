@@ -24,15 +24,19 @@ const Index = () => {
   const { toast } = useToast();
 
   const { data: channels } = useQuery({
-    queryKey: ["channels"],
+    queryKey: ["channels", user?.id],
     queryFn: async () => {
+      if (!user) return [];
+      
       const { data, error } = await supabase
         .from("youtube_channels")
         .select("*")
+        .eq("user_id", user.id)
         .order("added_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   useEffect(() => {
