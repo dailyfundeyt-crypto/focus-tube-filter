@@ -31,6 +31,7 @@ export const AddChannelDialog = () => {
 
       // Then save to database
       const { error: dbError } = await supabase.from("youtube_channels").insert({
+        user_id: user.id,
         channel_id: channelData.channelId,
         channel_name: channelData.channelName,
         channel_thumbnail: channelData.channelThumbnail,
