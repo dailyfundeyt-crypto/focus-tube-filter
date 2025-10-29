@@ -79,6 +79,7 @@ export type Database = {
       youtube_channels: {
         Row: {
           added_at: string
+          category: string | null
           channel_id: string
           channel_name: string
           channel_thumbnail: string | null
@@ -87,6 +88,7 @@ export type Database = {
         }
         Insert: {
           added_at?: string
+          category?: string | null
           channel_id: string
           channel_name: string
           channel_thumbnail?: string | null
@@ -95,6 +97,7 @@ export type Database = {
         }
         Update: {
           added_at?: string
+          category?: string | null
           channel_id?: string
           channel_name?: string
           channel_thumbnail?: string | null

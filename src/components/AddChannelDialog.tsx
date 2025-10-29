@@ -29,12 +29,23 @@ export const AddChannelDialog = () => {
       if (functionError) throw functionError;
       if (!channelData) throw new Error("Kanal nicht gefunden");
 
+      // Categorize the channel using AI
+      const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
+        'categorize-channel',
+        {
+          body: { channelName: channelData.channelName }
+        }
+      );
+
+      const category = categoryError ? 'Sonstiges' : categoryData?.category || 'Sonstiges';
+
       // Then save to database
       const { error: dbError } = await supabase.from("youtube_channels").insert({
         user_id: user.id,
         channel_id: channelData.channelId,
         channel_name: channelData.channelName,
         channel_thumbnail: channelData.channelThumbnail,
+        category: category,
       });
 
       if (dbError) {
