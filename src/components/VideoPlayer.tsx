@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface VideoPlayerProps {
   videoId: string | null;
@@ -9,6 +9,8 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoPlayerProps) => {
+  const playerRef = useRef<any>(null);
+
   useEffect(() => {
     if (!videoId) return;
 
@@ -23,7 +25,12 @@ export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoP
     const initPlayer = () => {
       if (!(window as any).YT || !(window as any).YT.Player) return;
 
-      const player = new (window as any).YT.Player("youtube-player", {
+      // Destroy existing player if it exists
+      if (playerRef.current) {
+        playerRef.current.destroy();
+      }
+
+      playerRef.current = new (window as any).YT.Player("youtube-player", {
         videoId: videoId,
         playerVars: {
           autoplay: 1,
@@ -39,8 +46,6 @@ export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoP
           },
         },
       });
-
-      return player;
     };
 
     if ((window as any).YT && (window as any).YT.Player) {
@@ -48,6 +53,14 @@ export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoP
     } else {
       (window as any).onYouTubeIframeAPIReady = initPlayer;
     }
+
+    // Cleanup function
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
   }, [videoId, onVideoEnd]);
 
   return (
