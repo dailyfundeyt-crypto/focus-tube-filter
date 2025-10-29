@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const videosRequestSchema = z.object({
+  channelId: z.string().trim().min(1, "Channel ID is required").max(100, "Channel ID too long"),
+  pageToken: z.string().max(200, "Page token too long").optional().nullable(),
+  order: z.enum(["date", "rating", "relevance", "title", "viewCount"]).optional(),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,15 +18,31 @@ serve(async (req) => {
   }
 
   try {
-    const { channelId, pageToken = null, order = "date" } = await req.json();
+    const body = await req.json();
+    const validationResult = videosRequestSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return new Response(
+        JSON.stringify({ error: 'Ungültige Eingabe' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
+    }
+
+    const { channelId, pageToken = null, order = "date" } = validationResult.data;
     const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
 
     if (!YOUTUBE_API_KEY) {
-      throw new Error('YouTube API key not configured');
-    }
-
-    if (!channelId) {
-      throw new Error('Channel ID is required');
+      console.error('YouTube API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'Service nicht verfügbar' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
     }
 
     console.log('Fetching videos for channel:', channelId, 'pageToken:', pageToken);
@@ -30,12 +53,25 @@ serve(async (req) => {
     if (!channelResp.ok) {
       const errorData = await channelResp.text();
       console.error('YouTube API (channels) error:', errorData);
-      throw new Error(`YouTube API error (channels): ${channelResp.status}`);
+      return new Response(
+        JSON.stringify({ error: 'Kanal konnte nicht geladen werden' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404 
+        }
+      );
     }
     const channelData = await channelResp.json();
     const uploadsPlaylistId = channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploadsPlaylistId) {
-      throw new Error('Uploads playlist not found for this channel');
+      console.error('Uploads playlist not found for channel:', channelId);
+      return new Response(
+        JSON.stringify({ error: 'Videos konnten nicht geladen werden' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404 
+        }
+      );
     }
 
     // Fetch playlist items (this returns ALL uploads over multiple pages)
@@ -48,7 +84,13 @@ serve(async (req) => {
     if (!playlistResp.ok) {
       const errorData = await playlistResp.text();
       console.error('YouTube API (playlistItems) error:', errorData);
-      throw new Error(`YouTube API error (playlistItems): ${playlistResp.status}`);
+      return new Response(
+        JSON.stringify({ error: 'Videos konnten nicht geladen werden' }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500 
+        }
+      );
     }
 
     const playlistData = await playlistResp.json();
@@ -102,9 +144,8 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in youtube-videos function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.' }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 

@@ -1,10 +1,15 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const channelNameSchema = z.object({
+  channelName: z.string().trim().min(1, "Channel name cannot be empty").max(200, "Channel name too long"),
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,18 +17,25 @@ serve(async (req) => {
   }
 
   try {
-    const { channelName } = await req.json();
+    const body = await req.json();
+    const validationResult = channelNameSchema.safeParse(body);
     
-    if (!channelName) {
+    if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Channel name is required' }),
+        JSON.stringify({ error: 'Ungültige Eingabe' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const { channelName } = validationResult.data;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      console.error('LOVABLE_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ error: 'Service nicht verfügbar' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Categorizing channel: ${channelName}`);
@@ -84,7 +96,10 @@ Antworte NUR mit dem Kategorienamen, nichts anderes.`
         );
       }
 
-      throw new Error('AI Gateway error');
+      return new Response(
+        JSON.stringify({ error: 'Kategorisierung fehlgeschlagen' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
@@ -100,7 +115,7 @@ Antworte NUR mit dem Kategorienamen, nichts anderes.`
   } catch (error) {
     console.error('Error in categorize-channel function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      JSON.stringify({ error: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
