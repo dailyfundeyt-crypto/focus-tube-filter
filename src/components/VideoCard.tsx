@@ -2,15 +2,9 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Copy, Check, Download, ChevronDown } from "lucide-react";
+import { Eye, EyeOff, Copy, Check, ExternalLink } from "lucide-react";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { useToast } from "@/hooks/use-toast";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface VideoCardProps {
   video: {
@@ -55,20 +49,9 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
     toggleWatched(video.id);
   };
 
-  const handleDownload = (format: 'mp3' | 'mp4-720' | 'mp4-1080') => {
-    let url = '';
-    switch (format) {
-      case 'mp3':
-        url = `https://www.y2mate.com/youtube/${video.id}`;
-        break;
-      case 'mp4-720':
-        url = `https://www.y2mate.com/youtube/${video.id}`;
-        break;
-      case 'mp4-1080':
-        url = `https://www.y2mate.com/youtube/${video.id}`;
-        break;
-    }
-    window.open(url, '_blank');
+  const handleOpenYouTube = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(videoUrl, '_blank');
   };
 
   return (
@@ -132,30 +115,16 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
               </>
             )}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-              >
-                <Download className="w-4 h-4 mr-1" />
-                Download
-                <ChevronDown className="w-3 h-3 ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-background border-border z-50" onClick={(e) => e.stopPropagation()}>
-              <DropdownMenuItem onClick={() => handleDownload('mp4-1080')} className="cursor-pointer">
-                MP4 (1080p)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownload('mp4-720')} className="cursor-pointer">
-                MP4 (720p)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownload('mp3')} className="cursor-pointer">
-                MP3 (Audio)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenYouTube}
+            className="flex-1"
+            title="Auf YouTube öffnen"
+          >
+            <ExternalLink className="w-4 h-4 mr-1" />
+            YouTube
+          </Button>
         </div>
       </div>
     </Card>
