@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Copy, Check } from "lucide-react";
+import { Eye, EyeOff, Copy, Check, Download } from "lucide-react";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,6 +47,11 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
   const handleToggleWatched = (e: React.MouseEvent) => {
     e.stopPropagation();
     toggleWatched(video.id);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`https://www.y2mate.com/youtube/${video.id}`, '_blank');
   };
 
   return (
@@ -109,6 +114,16 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
                 Link
               </>
             )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            className="flex-1"
+            title="Video herunterladen"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            Download
           </Button>
         </div>
       </div>
