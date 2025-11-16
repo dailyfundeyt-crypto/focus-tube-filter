@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, Copy, Check } from "lucide-react";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { useToast } from "@/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface VideoCardProps {
   video: {
@@ -19,9 +20,21 @@ interface VideoCardProps {
   };
   channelId: string;
   onVideoClick: (videoId: string, title: string) => void;
+  onMarkAsWatched?: (videoId: string) => void;
+  multiSelectMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: (videoId: string, selected: boolean) => void;
 }
 
-export const VideoCard = ({ video, channelId, onVideoClick }: VideoCardProps) => {
+export const VideoCard = ({ 
+  video, 
+  channelId, 
+  onVideoClick, 
+  onMarkAsWatched,
+  multiSelectMode = false,
+  isSelected = false,
+  onSelect 
+}: VideoCardProps) => {
   const { isWatched, toggleWatched } = useWatchedVideos(channelId);
   const watched = isWatched(video.id);
   const { toast } = useToast();
@@ -47,15 +60,38 @@ export const VideoCard = ({ video, channelId, onVideoClick }: VideoCardProps) =>
 
   const handleToggleWatched = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleWatched(video.id, channelId);
+    if (onMarkAsWatched) {
+      onMarkAsWatched(video.id);
+    } else {
+      toggleWatched(video.id, channelId);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (multiSelectMode && onSelect) {
+      onSelect(video.id, !isSelected);
+    } else {
+      onVideoClick(video.id, video.snippet.title);
+    }
   };
 
   return (
     <Card 
-      className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg border-border"
-      onClick={() => onVideoClick(video.id, video.snippet.title)}
+      className={`group overflow-hidden cursor-pointer transition-all hover:shadow-lg border-border ${
+        isSelected ? 'ring-2 ring-primary' : ''
+      }`}
+      onClick={handleCardClick}
     >
       <div className="relative">
+        {multiSelectMode && (
+          <div className="absolute top-2 left-2 z-10">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => onSelect?.(video.id, !!checked)}
+              className="bg-background border-2"
+            />
+          </div>
+        )}
         <img
           src={video.snippet.thumbnails.medium.url}
           alt={video.snippet.title}
