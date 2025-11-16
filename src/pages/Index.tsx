@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WatchedVideosTab } from "@/components/WatchedVideosTab";
 
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<{
@@ -194,7 +196,20 @@ const Index = () => {
           {/* Main Content */}
           <main>
             {selectedChannel ? (
-              <VideoGrid channelId={selectedChannel.id} channelName={selectedChannel.name} />
+              <Tabs defaultValue="unwatched" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="unwatched">Ungesehen</TabsTrigger>
+                  <TabsTrigger value="watched">Gesehen</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="unwatched">
+                  <VideoGrid channelId={selectedChannel.id} channelName={selectedChannel.name} />
+                </TabsContent>
+                
+                <TabsContent value="watched">
+                  <WatchedVideosTab channelId={selectedChannel.id} channelName={selectedChannel.name} />
+                </TabsContent>
+              </Tabs>
             ) : (
               <div className="flex items-center justify-center h-[60vh] text-center">
                 <div className="space-y-4">
