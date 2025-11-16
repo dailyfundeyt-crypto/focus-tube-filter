@@ -1,34 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowUpDown } from "lucide-react";
-import { VideoPlayer } from "./VideoPlayer";
+import { EmbeddedVideoPlayer } from "./EmbeddedVideoPlayer";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { VideoCard } from "./VideoCard";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
-
-interface Video {
-  id: string;
-  snippet: {
-    title: string;
-    thumbnails: {
-      medium: {
-        url: string;
-      };
-    };
-    publishedAt: string;
-  };
-  statistics: {
-    viewCount: string;
-  };
-}
 
 interface VideoGridProps {
   channelId: string;
@@ -40,12 +16,11 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     id: string;
     title: string;
   } | null>(null);
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const { markAsWatched } = useWatchedVideos();
+  const { markAsWatched, watchedVideos } = useWatchedVideos(channelId);
   const { user } = useAuth();
 
-  const { data: cachedVideos, isLoading, error, refetch } = useQuery({
-    queryKey: ["cached-videos", channelId, user?.id, sortOrder],
+  const { data: cachedVideos, isLoading, error } = useQuery({
+    queryKey: ["cached-videos", channelId, user?.id],
     queryFn: async () => {
       if (!user) return [];
       
@@ -53,7 +28,8 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
         .from("cached_videos")
         .select("*")
         .eq("user_id", user.id)
-        .eq("channel_id", channelId);
+        .eq("channel_id", channelId)
+        .order("published_at", { ascending: true }); // Always oldest first
 
       if (error) throw error;
       return data || [];
@@ -61,17 +37,13 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     enabled: !!channelId && !!user,
   });
 
-  // Removed auto-fetch - now handled in AddChannelDialog
+  // Get watched video IDs
+  const watchedVideoIds = new Set(watchedVideos?.map(w => w.video_id) || []);
 
-  const sortedVideos = cachedVideos
-    ? [...cachedVideos].sort((a, b) => {
-        const dateA = new Date(a.published_at || "").getTime();
-        const dateB = new Date(b.published_at || "").getTime();
-        return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
-      })
-    : [];
+  // Filter out watched videos
+  const unwatchedVideos = cachedVideos?.filter(v => !watchedVideoIds.has(v.video_id)) || [];
 
-  const videosAsApiFormat = sortedVideos.map(v => ({
+  const videosAsApiFormat = unwatchedVideos.map(v => ({
     id: v.video_id,
     snippet: {
       title: v.title,
@@ -108,56 +80,49 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
   if (!videosAsApiFormat || videosAsApiFormat.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p>Keine Videos gecacht</p>
-        <p className="text-sm mt-2">Klicke auf "Updaten" um Videos zu laden</p>
+        <p>Alle Videos gesehen! 🎉</p>
+        <p className="text-sm mt-2">Klicke auf "Updaten" um neue Videos zu laden</p>
       </div>
     );
   }
 
+  const handleVideoClick = (videoId: string, title: string) => {
+    setSelectedVideo({ id: videoId, title });
+    
+    // Find all videos older than the selected one
+    const selectedIndex = unwatchedVideos.findIndex(v => v.video_id === videoId);
+    const olderVideoIds = unwatchedVideos
+      .slice(0, selectedIndex)
+      .map(v => v.video_id);
+    
+    // Mark selected video and all older videos as watched
+    markAsWatched(videoId, channelId, olderVideoIds);
+  };
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">{channelName}</h2>
-          <p className="text-muted-foreground">
-            {videosAsApiFormat.length} {videosAsApiFormat.length === 1 ? "Video" : "Videos"}
-          </p>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <ArrowUpDown className="h-4 w-4" />
-              {sortOrder === "newest" ? "Neueste zuerst" : "Älteste zuerst"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setSortOrder("newest")}>
-              Neueste zuerst
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
-              Älteste zuerst
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-foreground">{channelName}</h2>
+        <p className="text-muted-foreground">
+          {videosAsApiFormat.length} ungesehene {videosAsApiFormat.length === 1 ? "Video" : "Videos"}
+        </p>
       </div>
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {videosAsApiFormat.map((video) => (
           <VideoCard
             key={video.id}
             video={video}
-            onVideoClick={(id, title) => setSelectedVideo({ id, title })}
+            channelId={channelId}
+            onVideoClick={handleVideoClick}
           />
         ))}
       </div>
-      <VideoPlayer
+      
+      <EmbeddedVideoPlayer
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
         onClose={() => setSelectedVideo(null)}
-        onVideoEnd={() => {
-          if (selectedVideo) {
-            markAsWatched(selectedVideo.id);
-          }
-        }}
       />
     </div>
   );

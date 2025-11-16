@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Copy, Check, ExternalLink } from "lucide-react";
+import { Eye, EyeOff, Copy, Check } from "lucide-react";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,11 +17,12 @@ interface VideoCardProps {
       publishedAt: string;
     };
   };
+  channelId: string;
   onVideoClick: (videoId: string, title: string) => void;
 }
 
-export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
-  const { isWatched, toggleWatched } = useWatchedVideos();
+export const VideoCard = ({ video, channelId, onVideoClick }: VideoCardProps) => {
+  const { isWatched, toggleWatched } = useWatchedVideos(channelId);
   const watched = isWatched(video.id);
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -46,12 +47,7 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
 
   const handleToggleWatched = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleWatched(video.id);
-  };
-
-  const handleOpenYouTube = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.open(videoUrl, '_blank');
+    toggleWatched(video.id, channelId);
   };
 
   return (
@@ -114,16 +110,6 @@ export const VideoCard = ({ video, onVideoClick }: VideoCardProps) => {
                 Link
               </>
             )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenYouTube}
-            className="flex-1"
-            title="Auf YouTube öffnen"
-          >
-            <ExternalLink className="w-4 h-4 mr-1" />
-            YouTube
           </Button>
         </div>
       </div>

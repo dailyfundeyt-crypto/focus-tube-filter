@@ -76,6 +76,30 @@ export type Database = {
         }
         Relationships: []
       }
+      watched_videos: {
+        Row: {
+          channel_id: string
+          id: string
+          user_id: string
+          video_id: string
+          watched_at: string
+        }
+        Insert: {
+          channel_id: string
+          id?: string
+          user_id: string
+          video_id: string
+          watched_at?: string
+        }
+        Update: {
+          channel_id?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+          watched_at?: string
+        }
+        Relationships: []
+      }
       youtube_channels: {
         Row: {
           added_at: string
