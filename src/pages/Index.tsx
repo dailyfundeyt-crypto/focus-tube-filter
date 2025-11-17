@@ -7,7 +7,7 @@ import { VideoGrid } from "@/components/VideoGrid";
 import { InstallPWA } from "@/components/InstallPWA";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, RefreshCw, Youtube } from "lucide-react";
+import { LogOut, RefreshCw, Youtube, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -132,6 +132,14 @@ const Index = () => {
               <h1 className="text-lg md:text-xl font-semibold">YouTube Viewer</h1>
             </div>
             <div className="flex items-center gap-1 md:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/dashboard")}
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Dashboard
+              </Button>
               {selectedChannel && (
                 <Button
                   variant="outline"
