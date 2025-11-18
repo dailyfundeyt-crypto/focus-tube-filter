@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Circle, ArrowLeft, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { YearActivityGrid } from "@/components/YearActivityGrid";
+import { SkillProgress } from "@/components/SkillProgress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/logo.png";
 
 interface Channel {
@@ -130,87 +133,121 @@ export default function Dashboard() {
         </div>
       </header>
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Übersicht über deinen Fortschritt bei allen Kanälen
-        </p>
-      </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="overview">Übersicht</TabsTrigger>
+          <TabsTrigger value="activity">Aktivität</TabsTrigger>
+          <TabsTrigger value="skills">Skills</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Gesamtfortschritt Heute</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">
-                {totalWatched} von {totalGoal} Videos
-              </span>
-              <span className="font-medium">{Math.round(overallProgress)}%</span>
-            </div>
-            <Progress value={overallProgress} className="h-3" />
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Übersicht über deinen Fortschritt bei allen Kanälen
+            </p>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {channelsWithProgress.map((channel) => (
-          <Card key={channel.id} className="overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4 mb-4">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={channel.channel_thumbnail || ""} />
-                  <AvatarFallback>{channel.channel_name[0]}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{channel.channel_name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Ziel: {channel.daily_video_goal} Videos/Tag
-                  </p>
-                </div>
-                {channel.progressPercentage >= 100 ? (
-                  <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />
-                ) : (
-                  <Circle className="h-6 w-6 text-muted-foreground flex-shrink-0" />
-                )}
-              </div>
-
+          <Card>
+            <CardHeader>
+              <CardTitle>Gesamtfortschritt Heute</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {channel.watchedToday} von {channel.daily_video_goal}
+                    {totalWatched} von {totalGoal} Videos
                   </span>
-                  <span className="font-medium">
-                    {Math.round(channel.progressPercentage)}%
-                  </span>
+                  <span className="font-medium">{Math.round(overallProgress)}%</span>
                 </div>
-                <Progress value={channel.progressPercentage} className="h-2" />
+                <Progress value={overallProgress} className="h-3" />
               </div>
-
-              {channel.watchedToday >= channel.daily_video_goal && (
-                <div className="mt-3 text-sm text-green-600 dark:text-green-400 font-medium">
-                  🎉 Tagesziel erreicht!
-                </div>
-              )}
-              {channel.watchedToday < channel.daily_video_goal && (
-                <div className="mt-3 text-sm text-muted-foreground">
-                  Noch {channel.daily_video_goal - channel.watchedToday} Videos
-                </div>
-              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {channelsWithProgress.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            <p>Keine Kanäle gefunden</p>
-            <p className="text-sm mt-2">Füge Kanäle hinzu, um deinen Fortschritt zu sehen</p>
-          </CardContent>
-        </Card>
-      )}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {channelsWithProgress.map((channel) => (
+              <Card key={channel.id} className="overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4 mb-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={channel.channel_thumbnail || ""} />
+                      <AvatarFallback>{channel.channel_name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate">{channel.channel_name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Ziel: {channel.daily_video_goal} Videos/Tag
+                      </p>
+                    </div>
+                    {channel.progressPercentage >= 100 ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Circle className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {channel.watchedToday} von {channel.daily_video_goal}
+                      </span>
+                      <span className="font-medium">
+                        {Math.round(channel.progressPercentage)}%
+                      </span>
+                    </div>
+                    <Progress value={channel.progressPercentage} className="h-2" />
+                  </div>
+
+                  {channel.watchedToday >= channel.daily_video_goal && (
+                    <div className="mt-3 text-sm text-green-600 dark:text-green-400 font-medium">
+                      🎉 Tagesziel erreicht!
+                    </div>
+                  )}
+                  {channel.watchedToday < channel.daily_video_goal && (
+                    <div className="mt-3 text-sm text-muted-foreground">
+                      Noch {channel.daily_video_goal - channel.watchedToday} Videos
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {channelsWithProgress.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <p>Keine Kanäle gefunden</p>
+                <p className="text-sm mt-2">Füge Kanäle hinzu, um deinen Fortschritt zu sehen</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6 mt-6">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Jahresaktivität</h2>
+            <p className="text-muted-foreground">
+              Deine tägliche Lernaktivität im Überblick
+            </p>
+          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <YearActivityGrid />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="skills" className="space-y-6 mt-6">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Skill-Fortschritt</h2>
+            <p className="text-muted-foreground">
+              KI-basierte Kategorisierung deiner Lernfortschritte
+            </p>
+          </div>
+          <SkillProgress />
+        </TabsContent>
+      </Tabs>
     </div>
     </div>
   );
