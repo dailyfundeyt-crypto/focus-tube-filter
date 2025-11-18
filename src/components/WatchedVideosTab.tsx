@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { VideoCard } from "./VideoCard";
-import { EmbeddedVideoPlayer } from "./EmbeddedVideoPlayer";
+import { VideoPlayer } from "./VideoPlayer";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -93,10 +93,13 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
         ))}
       </div>
 
-      <EmbeddedVideoPlayer
+      <VideoPlayer
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
+        channelId={channelId}
+        channelName={channelName}
         onClose={() => setSelectedVideo(null)}
+        onVideoEnd={() => setSelectedVideo(null)}
       />
     </div>
   );

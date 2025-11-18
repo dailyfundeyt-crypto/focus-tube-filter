@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { EmbeddedVideoPlayer } from "./EmbeddedVideoPlayer";
+import { VideoPlayer } from "./VideoPlayer";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { VideoCard } from "./VideoCard";
 import { Button } from "@/components/ui/button";
@@ -206,10 +206,18 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
         ))}
       </div>
       
-      <EmbeddedVideoPlayer
+      <VideoPlayer
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
+        channelId={channelId}
+        channelName={channelName}
         onClose={() => setSelectedVideo(null)}
+        onVideoEnd={() => {
+          if (selectedVideo) {
+            markAsWatched(selectedVideo.id, channelId);
+          }
+          setSelectedVideo(null);
+        }}
       />
     </div>
   );
