@@ -44,12 +44,16 @@ export const useTrackWatchedVideo = () => {
             total_time_minutes: existingCategory.total_time_minutes + durationMinutes,
           })
           .eq("id", existingCategory.id);
+        
+        console.log("Updated category:", category, "with", durationMinutes, "minutes");
       } else {
         await supabase.from("skill_categories").insert({
           user_id: user.id,
           category_name: category,
           total_time_minutes: durationMinutes,
         });
+        
+        console.log("Created new category:", category, "with", durationMinutes, "minutes");
       }
 
       // Update daily activity
@@ -88,8 +92,15 @@ export const useTrackWatchedVideo = () => {
         title: "Video getrackt!",
         description: `Kategorie: ${category} (+${durationMinutes} min)`,
       });
+      
+      console.log("Successfully tracked video:", videoTitle, "in category:", category);
     } catch (error) {
       console.error("Error tracking video:", error);
+      toast({
+        title: "Tracking-Fehler",
+        description: "Video konnte nicht getrackt werden",
+        variant: "destructive",
+      });
     }
   }, [toast]);
 
