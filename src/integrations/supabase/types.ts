@@ -58,6 +58,33 @@ export type Database = {
           },
         ]
       }
+      daily_activity: {
+        Row: {
+          activity_date: string
+          created_at: string
+          id: string
+          total_watch_time_minutes: number
+          user_id: string
+          videos_watched: number
+        }
+        Insert: {
+          activity_date: string
+          created_at?: string
+          id?: string
+          total_watch_time_minutes?: number
+          user_id: string
+          videos_watched?: number
+        }
+        Update: {
+          activity_date?: string
+          created_at?: string
+          id?: string
+          total_watch_time_minutes?: number
+          user_id?: string
+          videos_watched?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -73,6 +100,33 @@ export type Database = {
           created_at?: string | null
           email?: string
           id?: string
+        }
+        Relationships: []
+      }
+      skill_categories: {
+        Row: {
+          category_name: string
+          created_at: string
+          id: string
+          total_time_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_name: string
+          created_at?: string
+          id?: string
+          total_time_minutes?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_name?: string
+          created_at?: string
+          id?: string
+          total_time_minutes?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
