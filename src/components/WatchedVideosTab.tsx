@@ -13,7 +13,7 @@ interface WatchedVideosTabProps {
 
 export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabProps) => {
   const { user } = useAuth();
-  const [selectedVideo, setSelectedVideo] = useState<{ id: string; title: string; durationSeconds: number } | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<{ id: string; title: string } | null>(null);
 
   const { data: watchedVideos, isLoading } = useQuery({
     queryKey: ["watched-videos-list", channelId, user?.id],
@@ -44,7 +44,6 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
 
       return videos?.map(video => ({
         id: video.video_id,
-        durationSeconds: video.duration_seconds || 0,
         snippet: {
           title: video.title,
           thumbnails: {
@@ -89,7 +88,7 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
             key={video.id}
             video={video}
             channelId={channelId}
-            onVideoClick={(id, title) => setSelectedVideo({ id, title, durationSeconds: video.durationSeconds })}
+            onVideoClick={(id, title) => setSelectedVideo({ id, title })}
           />
         ))}
       </div>
@@ -98,7 +97,7 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
         channelId={channelId}
-        durationSeconds={selectedVideo?.durationSeconds || 0}
+        channelName={channelName}
         onClose={() => setSelectedVideo(null)}
         onVideoEnd={() => setSelectedVideo(null)}
       />

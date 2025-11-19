@@ -21,13 +21,9 @@ export const SkillProgress = () => {
   const { data: categories, isLoading } = useQuery({
     queryKey: ["skill-categories"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-
       const { data, error } = await supabase
         .from("skill_categories")
         .select("*")
-        .eq("user_id", user.id)
         .order("total_time_minutes", { ascending: false });
 
       if (error) throw error;
