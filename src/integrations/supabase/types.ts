@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           cached_at: string | null
           channel_id: string
+          duration_seconds: number | null
           id: string
           published_at: string | null
           thumbnail: string | null
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           cached_at?: string | null
           channel_id: string
+          duration_seconds?: number | null
           id?: string
           published_at?: string | null
           thumbnail?: string | null
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           cached_at?: string | null
           channel_id?: string
+          duration_seconds?: number | null
           id?: string
           published_at?: string | null
           thumbnail?: string | null

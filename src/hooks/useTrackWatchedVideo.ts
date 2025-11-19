@@ -8,26 +8,25 @@ export const useTrackWatchedVideo = () => {
   const trackVideo = useCallback(async (
     videoId: string,
     channelId: string,
-    videoTitle: string,
-    channelName: string,
-    durationMinutes: number
+    durationSeconds: number
   ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const today = new Date().toISOString().split("T")[0];
+      const durationMinutes = Math.max(1, Math.floor(durationSeconds / 60));
 
-      // Get category from AI
-      const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
-        "categorize-video",
-        {
-          body: { videoTitle, channelName },
-        }
-      );
+      // Get the channel to find its category
+      const { data: channelData } = await supabase
+        .from("youtube_channels")
+        .select("category, channel_name")
+        .eq("user_id", user.id)
+        .eq("channel_id", channelId)
+        .single();
 
-      const category = categoryData?.category || "Allgemein";
-      console.log("Video categorized as:", category);
+      const category = channelData?.category || "Allgemein";
+      console.log("Using channel category:", category, "for video tracking");
 
       // Update or create skill category
       const { data: existingCategory } = await supabase
@@ -90,10 +89,10 @@ export const useTrackWatchedVideo = () => {
 
       toast({
         title: "Video getrackt!",
-        description: `Kategorie: ${category} (+${durationMinutes} min)`,
+        description: `${category}: +${durationMinutes} min`,
       });
       
-      console.log("Successfully tracked video:", videoTitle, "in category:", category);
+      console.log("Successfully tracked video in category:", category, "+", durationMinutes, "min");
     } catch (error) {
       console.error("Error tracking video:", error);
       toast({

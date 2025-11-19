@@ -6,21 +6,19 @@ interface VideoPlayerProps {
   videoId: string | null;
   videoTitle: string;
   channelId: string;
-  channelName: string;
+  durationSeconds: number;
   onClose: () => void;
   onVideoEnd: () => void;
 }
 
-export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, onClose, onVideoEnd }: VideoPlayerProps) => {
+export const VideoPlayer = ({ videoId, videoTitle, channelId, durationSeconds, onClose, onVideoEnd }: VideoPlayerProps) => {
   const playerRef = useRef<any>(null);
-  const startTimeRef = useRef<number>(0);
   const [hasTracked, setHasTracked] = useState(false);
   const { trackVideo } = useTrackWatchedVideo();
 
   useEffect(() => {
     if (!videoId) return;
     setHasTracked(false);
-    startTimeRef.current = Date.now();
 
     // Load YouTube IFrame API
     if (!(window as any).YT) {
@@ -51,8 +49,7 @@ export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, onClo
             if (event.data === 0) {
               // Track video when it ends
               if (!hasTracked && videoId) {
-                const watchTimeMinutes = Math.floor((Date.now() - startTimeRef.current) / 60000);
-                trackVideo(videoId, channelId, videoTitle, channelName, Math.max(1, watchTimeMinutes));
+                trackVideo(videoId, channelId, durationSeconds);
                 setHasTracked(true);
               }
               onVideoEnd();
@@ -72,17 +69,18 @@ export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, onClo
     return () => {
       if (playerRef.current) {
         playerRef.current.destroy();
-        playerRef.current = null;
+      playerRef.current = null;
       }
     };
-  }, [videoId, channelId, channelName, videoTitle, onVideoEnd, trackVideo, hasTracked]);
+  }, [videoId, channelId, durationSeconds, onVideoEnd, trackVideo, hasTracked]);
 
-  // Track video on close if user watched for some time
+  // Track video on close if user watched at least half
   const handleClose = () => {
-    if (!hasTracked && videoId && playerRef.current) {
-      const watchTimeMinutes = Math.floor((Date.now() - startTimeRef.current) / 60000);
-      if (watchTimeMinutes >= 1) {
-        trackVideo(videoId, channelId, videoTitle, channelName, watchTimeMinutes);
+    if (!hasTracked && videoId && playerRef.current && durationSeconds > 0) {
+      const currentTime = playerRef.current.getCurrentTime?.() || 0;
+      // Track if watched at least 50% or 1 minute
+      if (currentTime >= durationSeconds * 0.5 || currentTime >= 60) {
+        trackVideo(videoId, channelId, durationSeconds);
         setHasTracked(true);
       }
     }
