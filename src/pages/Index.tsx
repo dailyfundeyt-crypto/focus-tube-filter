@@ -51,11 +51,51 @@ const Index = () => {
     if (!selectedChannel || !user) return;
     
     setIsRefreshing(true);
+    
+    // Helper to parse ISO 8601 duration (PT#H#M#S) to seconds
+    const parseDuration = (duration: string): number => {
+      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!match) return 0;
+      const hours = parseInt(match[1] || "0");
+      const minutes = parseInt(match[2] || "0");
+      const seconds = parseInt(match[3] || "0");
+      return hours * 3600 + minutes * 60 + seconds;
+    };
+
     try {
       console.log("Refreshing videos for channel:", selectedChannel.id);
+
+      // Ensure the channel has an AI category
+      try {
+        const { data: channelRow } = await supabase
+          .from("youtube_channels")
+          .select("channel_name, category")
+          .eq("user_id", user.id)
+          .eq("channel_id", selectedChannel.id)
+          .single();
+
+        if (channelRow && !channelRow.category) {
+          const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
+            "categorize-channel",
+            {
+              body: { channelName: channelRow.channel_name },
+            }
+          );
+
+          const category = categoryError ? "Sonstiges" : categoryData?.category || "Sonstiges";
+
+          await supabase
+            .from("youtube_channels")
+            .update({ category })
+            .eq("user_id", user.id)
+            .eq("channel_id", selectedChannel.id);
+        }
+      } catch (categoryError) {
+        console.error("Error ensuring channel category on refresh:", categoryError);
+      }
       
-      let allVideos = [];
-      let pageToken = null;
+      let allVideos: any[] = [];
+      let pageToken: string | null = null;
       let pageCount = 0;
       
       // Fetch all pages
@@ -67,7 +107,7 @@ const Index = () => {
           body: { 
             channelId: selectedChannel.id,
             pageToken,
-            order: "date"
+            order: "date",
           },
         });
 
@@ -89,7 +129,7 @@ const Index = () => {
         .eq("user_id", user.id)
         .eq("channel_id", selectedChannel.id);
       
-      // Insert new videos
+      // Insert new videos with parsed duration
       for (const video of allVideos) {
         await supabase.from("cached_videos").insert({
           user_id: user.id,
@@ -99,6 +139,7 @@ const Index = () => {
           thumbnail: video.snippet.thumbnails.medium.url,
           published_at: video.snippet.publishedAt,
           video_url: `https://www.youtube.com/watch?v=${video.id}`,
+          duration_seconds: parseDuration(video.contentDetails?.duration || "PT0S"),
         });
       }
 
