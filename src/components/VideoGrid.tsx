@@ -210,7 +210,7 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
         channelId={channelId}
-        channelName={channelName}
+        durationSeconds={unwatchedVideos.find(v => v.video_id === selectedVideo?.id)?.duration_seconds || 0}
         onClose={() => setSelectedVideo(null)}
         onVideoEnd={() => {
           if (selectedVideo) {

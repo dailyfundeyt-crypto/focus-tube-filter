@@ -83,7 +83,17 @@ export const AddChannelDialog = () => {
         console.log(`Page ${pageCount}: ${videos.length} videos, total: ${allVideos.length}`);
       } while (pageToken && pageCount < 20);
       
-      // Cache all videos
+      // Helper to parse ISO 8601 duration to seconds
+      const parseDuration = (duration: string): number => {
+        const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+        if (!match) return 0;
+        const hours = parseInt(match[1] || '0');
+        const minutes = parseInt(match[2] || '0');
+        const seconds = parseInt(match[3] || '0');
+        return hours * 3600 + minutes * 60 + seconds;
+      };
+
+      // Cache all videos with duration
       for (const video of allVideos) {
         await supabase.from("cached_videos").insert({
           user_id: user.id,
@@ -93,6 +103,7 @@ export const AddChannelDialog = () => {
           thumbnail: video.snippet.thumbnails.medium.url,
           published_at: video.snippet.publishedAt,
           video_url: `https://www.youtube.com/watch?v=${video.id}`,
+          duration_seconds: parseDuration(video.contentDetails?.duration || "PT0S"),
         });
       }
 
