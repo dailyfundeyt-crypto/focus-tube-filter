@@ -1,9 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Trash2, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelGoalSettings } from "./ChannelGoalSettings";
+import { useState } from "react";
 
 interface Channel {
   id: string;
@@ -11,6 +14,7 @@ interface Channel {
   channel_name: string;
   channel_thumbnail: string | null;
   daily_video_goal: number;
+  category: string | null;
 }
 
 interface ChannelListProps {
@@ -20,6 +24,8 @@ interface ChannelListProps {
 
 export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListProps) => {
   const queryClient = useQueryClient();
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
+  const [editCategory, setEditCategory] = useState("");
 
   const { data: channels, isLoading } = useQuery({
     queryKey: ["channels"],
@@ -52,6 +58,26 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
     },
   });
 
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, category }: { id: string; category: string | null }) => {
+      const { error } = await supabase
+        .from("youtube_channels")
+        .update({ category })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      setEditingChannelId(null);
+      setEditCategory("");
+      toast.success("Kategorie aktualisiert");
+    },
+    onError: () => {
+      toast.error("Fehler beim Aktualisieren der Kategorie");
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -76,43 +102,87 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
       {channels.map((channel) => (
         <div
           key={channel.id}
-          className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer hover:border-primary/50 ${
+          className={`flex flex-col gap-2 p-3 rounded-lg border transition-all cursor-pointer hover:border-primary/50 ${
             selectedChannelId === channel.channel_id
               ? "border-primary bg-primary/5"
               : "border-border bg-card"
           }`}
           onClick={() => onChannelSelect(channel.channel_id, channel.channel_name)}
         >
-          {channel.channel_thumbnail && (
-            <img
-              src={channel.channel_thumbnail}
-              alt={channel.channel_name}
-              className="w-10 h-10 rounded-full"
-            />
+          <div className="flex items-center gap-3">
+            {channel.channel_thumbnail && (
+              <img
+                src={channel.channel_thumbnail}
+                alt={channel.channel_name}
+                className="w-10 h-10 rounded-full"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-medium truncate">{channel.channel_name}</p>
+              <p className="text-xs text-muted-foreground">Tagesziel: {channel.daily_video_goal || 1} Videos</p>
+              {channel.category && (
+                <p className="text-xs text-muted-foreground">
+                  Kategorie: <span className="font-medium">{channel.category}</span>
+                </p>
+              )}
+            </div>
+            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setEditingChannelId(channel.id);
+                  setEditCategory(channel.category || "");
+                }}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <ChannelGoalSettings
+                channelId={channel.channel_id}
+                channelName={channel.channel_name}
+                currentGoal={channel.daily_video_goal || 1}
+                onGoalUpdate={() => queryClient.invalidateQueries({ queryKey: ["channels"] })}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteMutation.mutate(channel.id)}
+                className="hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {editingChannelId === channel.id && (
+            <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+              <Label htmlFor={`category-${channel.id}`}>Kategorie</Label>
+              <div className="flex gap-2">
+                <Input
+                  id={`category-${channel.id}`}
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  placeholder="z.B. Programmieren"
+                />
+                <Button
+                  size="sm"
+                  onClick={() => updateCategoryMutation.mutate({ id: channel.id, category: editCategory || null })}
+                >
+                  Speichern
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingChannelId(null);
+                    setEditCategory("");
+                  }}
+                >
+                  Abbrechen
+                </Button>
+              </div>
+            </div>
           )}
-          <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">{channel.channel_name}</p>
-            <p className="text-xs text-muted-foreground">Tagesziel: {channel.daily_video_goal || 1} Videos</p>
-          </div>
-          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-            <ChannelGoalSettings
-              channelId={channel.channel_id}
-              channelName={channel.channel_name}
-              currentGoal={channel.daily_video_goal || 1}
-              onGoalUpdate={() => queryClient.invalidateQueries({ queryKey: ["channels"] })}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteMutation.mutate(channel.id);
-              }}
-              className="hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       ))}
     </div>
