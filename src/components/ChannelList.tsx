@@ -27,6 +27,20 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState("");
 
+  // Fetch available categories
+  const { data: categories } = useQuery({
+    queryKey: ["skill-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("skill_categories")
+        .select("*")
+        .order("category_name");
+
+      if (error) throw error;
+      return data as { id: string; category_name: string }[];
+    },
+  });
+
   const { data: channels, isLoading } = useQuery({
     queryKey: ["channels"],
     queryFn: async () => {
@@ -156,30 +170,45 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
 
           {editingChannelId === channel.id && (
             <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
-              <Label htmlFor={`category-${channel.id}`}>Kategorie</Label>
-              <div className="flex gap-2">
-                <Input
-                  id={`category-${channel.id}`}
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  placeholder="z.B. Programmieren"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => updateCategoryMutation.mutate({ id: channel.id, category: editCategory || null })}
-                >
-                  Speichern
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingChannelId(null);
-                    setEditCategory("");
-                  }}
-                >
-                  Abbrechen
-                </Button>
+              <Label htmlFor={`category-${channel.id}`}>Kategorie zuweisen</Label>
+              <div className="flex flex-col gap-2">
+                {categories && categories.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {categories.map((cat) => (
+                      <Button
+                        key={cat.id}
+                        size="sm"
+                        variant={editCategory === cat.category_name ? "default" : "outline"}
+                        onClick={() => setEditCategory(cat.category_name)}
+                      >
+                        {cat.category_name}
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Keine Kategorien verfügbar. Erstelle zuerst Kategorien im Skills-Tab.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => updateCategoryMutation.mutate({ id: channel.id, category: editCategory || null })}
+                    disabled={!editCategory}
+                  >
+                    Speichern
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingChannelId(null);
+                      setEditCategory("");
+                    }}
+                  >
+                    Abbrechen
+                  </Button>
+                </div>
               </div>
             </div>
           )}

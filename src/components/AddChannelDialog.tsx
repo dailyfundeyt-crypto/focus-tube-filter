@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,20 @@ export const AddChannelDialog = () => {
   const [category, setCategory] = useState("");
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Fetch available categories
+  const { data: categories } = useQuery({
+    queryKey: ["skill-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("skill_categories")
+        .select("*")
+        .order("category_name");
+
+      if (error) throw error;
+      return data as { id: string; category_name: string }[];
+    },
+  });
 
   const addChannelMutation = useMutation({
     mutationFn: async (input: { channelInput: string; category: string }) => {
@@ -143,14 +158,27 @@ export const AddChannelDialog = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category">Kategorie (optional)</Label>
-            <Input
-              id="category"
-              placeholder="z.B. Programmieren, Fitness, Kochen"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              disabled={addChannelMutation.isPending}
-            />
+            <Label htmlFor="category">Kategorie zuweisen (optional)</Label>
+            {categories && categories.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map((cat) => (
+                  <Button
+                    key={cat.id}
+                    type="button"
+                    size="sm"
+                    variant={category === cat.category_name ? "default" : "outline"}
+                    onClick={() => setCategory(category === cat.category_name ? "" : cat.category_name)}
+                    disabled={addChannelMutation.isPending}
+                  >
+                    {cat.category_name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Keine Kategorien verfügbar. Erstelle zuerst Kategorien im Skills-Tab.
+              </p>
+            )}
           </div>
           <Button
             onClick={() => addChannelMutation.mutate({ channelInput, category })}

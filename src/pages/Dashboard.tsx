@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { YearActivityGrid } from "@/components/YearActivityGrid";
 import { SkillProgress } from "@/components/SkillProgress";
+import { CategoryManagement } from "@/components/CategoryManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/logo.png";
 
@@ -242,9 +243,10 @@ export default function Dashboard() {
           <div>
             <h2 className="text-2xl font-bold mb-2">Skill-Fortschritt</h2>
             <p className="text-muted-foreground">
-              KI-basierte Kategorisierung deiner Lernfortschritte
+              Verwalte deine Kategorien und verfolge deinen Fortschritt
             </p>
           </div>
+          <CategoryManagement />
           <SkillProgress />
         </TabsContent>
       </Tabs>
