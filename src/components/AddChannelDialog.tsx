@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Plus } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,41 +12,32 @@ import { useAuth } from "@/contexts/AuthContext";
 export const AddChannelDialog = () => {
   const [open, setOpen] = useState(false);
   const [channelInput, setChannelInput] = useState("");
+  const [category, setCategory] = useState("");
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const addChannelMutation = useMutation({
-    mutationFn: async (input: string) => {
+    mutationFn: async (input: { channelInput: string; category: string }) => {
       if (!user) throw new Error("Nicht angemeldet");
 
       // First, get channel info from YouTube API
       const { data: channelData, error: functionError } = await supabase.functions.invoke(
         "youtube-channel-info",
         {
-          body: { channelInput: input },
+          body: { channelInput: input.channelInput },
         }
       );
 
       if (functionError) throw functionError;
       if (!channelData) throw new Error("Kanal nicht gefunden");
 
-      // Categorize the channel using AI
-      const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
-        'categorize-channel',
-        {
-          body: { channelName: channelData.channelName }
-        }
-      );
-
-      const category = categoryError ? 'Sonstiges' : categoryData?.category || 'Sonstiges';
-
-      // Then save to database
+      // Then save to database with user-provided category
       const { error: dbError } = await supabase.from("youtube_channels").insert({
         user_id: user.id,
         channel_id: channelData.channelId,
         channel_name: channelData.channelName,
         channel_thumbnail: channelData.channelThumbnail,
-        category: category,
+        category: input.category || null,
       });
 
       if (dbError) {
@@ -93,6 +85,7 @@ export const AddChannelDialog = () => {
           thumbnail: video.snippet.thumbnails.medium.url,
           published_at: video.snippet.publishedAt,
           video_url: `https://www.youtube.com/watch?v=${video.id}`,
+          duration_seconds: video.contentDetails?.duration ? parseDuration(video.contentDetails.duration) : 0,
         });
       }
 
@@ -105,6 +98,7 @@ export const AddChannelDialog = () => {
       queryClient.invalidateQueries({ queryKey: ["cached-videos"] });
       toast.success(`Kanal hinzugefügt! ${data.videoCount} Videos geladen`);
       setChannelInput("");
+      setCategory("");
       setOpen(false);
     },
     onError: (error: Error) => {
@@ -112,11 +106,14 @@ export const AddChannelDialog = () => {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (channelInput.trim()) {
-      addChannelMutation.mutate(channelInput.trim());
-    }
+  // Helper function to parse ISO 8601 duration to seconds
+  const parseDuration = (duration: string): number => {
+    const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return 0;
+    const hours = parseInt(match[1] || "0");
+    const minutes = parseInt(match[2] || "0");
+    const seconds = parseInt(match[3] || "0");
+    return hours * 3600 + minutes * 60 + seconds;
   };
 
   return (
@@ -130,27 +127,39 @@ export const AddChannelDialog = () => {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>YouTube-Kanal hinzufügen</DialogTitle>
+          <DialogDescription>
+            Füge einen YouTube-Kanal hinzu und weise ihm eine Kategorie zu
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="channelInput">Kanal-URL oder Handle</Label>
             <Input
-              placeholder="Kanal-URL, ID oder @username"
+              id="channelInput"
+              placeholder="@KanalName oder youtube.com/c/KanalName"
               value={channelInput}
               onChange={(e) => setChannelInput(e.target.value)}
               disabled={addChannelMutation.isPending}
             />
-            <p className="text-xs text-muted-foreground mt-2">
-              Beispiele: youtube.com/@username, UCxxxxx, @username
-            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="category">Kategorie (optional)</Label>
+            <Input
+              id="category"
+              placeholder="z.B. Programmieren, Fitness, Kochen"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              disabled={addChannelMutation.isPending}
+            />
           </div>
           <Button
-            type="submit"
+            onClick={() => addChannelMutation.mutate({ channelInput, category })}
+            disabled={addChannelMutation.isPending || !channelInput}
             className="w-full"
-            disabled={!channelInput.trim() || addChannelMutation.isPending}
           >
             {addChannelMutation.isPending ? "Wird hinzugefügt..." : "Hinzufügen"}
           </Button>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

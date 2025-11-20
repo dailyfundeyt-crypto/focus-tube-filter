@@ -44,6 +44,7 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
 
       return videos?.map(video => ({
         id: video.video_id,
+        durationMinutes: Math.ceil((video.duration_seconds || 0) / 60),
         snippet: {
           title: video.title,
           thumbnails: {
@@ -98,6 +99,9 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
         videoTitle={selectedVideo?.title || ""}
         channelId={channelId}
         channelName={channelName}
+        durationMinutes={
+          watchedVideos.find(v => v.id === selectedVideo?.id)?.durationMinutes || 0
+        }
         onClose={() => setSelectedVideo(null)}
         onVideoEnd={() => setSelectedVideo(null)}
       />
