@@ -1,0 +1,139 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash2, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Category {
+  id: string;
+  category_name: string;
+  total_time_minutes: number;
+}
+
+export const CategoryManagement = () => {
+  const [newCategory, setNewCategory] = useState("");
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const { data: categories, isLoading } = useQuery({
+    queryKey: ["skill-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("skill_categories")
+        .select("*")
+        .order("category_name");
+
+      if (error) throw error;
+      return data as Category[];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (categoryName: string) => {
+      if (!user) throw new Error("Nicht angemeldet");
+
+      const { error } = await supabase
+        .from("skill_categories")
+        .insert({
+          user_id: user.id,
+          category_name: categoryName,
+          total_time_minutes: 0,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      toast.success("Kategorie erstellt");
+      setNewCategory("");
+    },
+    onError: (error: Error) => {
+      toast.error("Fehler beim Erstellen: " + error.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("skill_categories")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      toast.success("Kategorie gelöscht");
+    },
+    onError: () => {
+      toast.error("Fehler beim Löschen");
+    },
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-8">Lädt...</div>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Kategorien verwalten</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Neue Kategorie..."
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newCategory.trim()) {
+                createMutation.mutate(newCategory.trim());
+              }
+            }}
+          />
+          <Button
+            onClick={() => newCategory.trim() && createMutation.mutate(newCategory.trim())}
+            disabled={!newCategory.trim() || createMutation.isPending}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Erstellen
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {!categories || categories.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Noch keine Kategorien erstellt
+            </p>
+          ) : (
+            categories.map((category) => (
+              <div
+                key={category.id}
+                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+              >
+                <div>
+                  <p className="font-medium">{category.category_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {Math.floor(category.total_time_minutes / 60)}h {category.total_time_minutes % 60}m
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => deleteMutation.mutate(category.id)}
+                  className="hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
