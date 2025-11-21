@@ -100,8 +100,11 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
       .slice(0, selectedIndex)
       .map(v => v.video_id);
     
+    const selectedVideoData = unwatchedVideos.find(v => v.video_id === videoId);
+    const durationMinutes = Math.ceil((selectedVideoData?.duration_seconds || 0) / 60);
+    
     // Mark selected video and all older videos as watched
-    markAsWatched(videoId, channelId, olderVideoIds);
+    markAsWatched(videoId, channelId, olderVideoIds, durationMinutes);
   };
 
   const handleMarkAsWatched = (videoId: string) => {
@@ -111,8 +114,11 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
       .slice(0, selectedIndex)
       .map(v => v.video_id);
     
+    const selectedVideoData = unwatchedVideos.find(v => v.video_id === videoId);
+    const durationMinutes = Math.ceil((selectedVideoData?.duration_seconds || 0) / 60);
+    
     // Mark selected video and all older videos as watched
-    markAsWatched(videoId, channelId, olderVideoIds);
+    markAsWatched(videoId, channelId, olderVideoIds, durationMinutes);
   };
 
   const handleToggleMultiSelect = () => {
@@ -155,7 +161,9 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     if (videosToMark.length > 0) {
       const lastVideoId = videosToMark[videosToMark.length - 1];
       const olderVideoIds = videosToMark.slice(0, -1);
-      markAsWatched(lastVideoId, channelId, olderVideoIds);
+      const lastVideoData = unwatchedVideos.find(v => v.video_id === lastVideoId);
+      const durationMinutes = Math.ceil((lastVideoData?.duration_seconds || 0) / 60);
+      markAsWatched(lastVideoId, channelId, olderVideoIds, durationMinutes);
     }
 
     setMultiSelectMode(false);
@@ -215,12 +223,7 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
           Math.ceil((unwatchedVideos.find(v => v.video_id === selectedVideo?.id)?.duration_seconds || 0) / 60)
         }
         onClose={() => setSelectedVideo(null)}
-        onVideoEnd={() => {
-          if (selectedVideo) {
-            markAsWatched(selectedVideo.id, channelId);
-          }
-          setSelectedVideo(null);
-        }}
+        onVideoEnd={() => setSelectedVideo(null)}
       />
     </div>
   );

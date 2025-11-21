@@ -33,33 +33,103 @@ export const useWatchedVideos = (channelId?: string) => {
     mutationFn: async ({ 
       videoId, 
       channelId,
-      olderVideoIds 
+      olderVideoIds = [],
+      durationMinutes 
     }: { 
       videoId: string; 
       channelId: string;
       olderVideoIds?: string[];
+      durationMinutes: number;
     }) => {
       if (!user?.id) throw new Error("Not authenticated");
 
-      // Mark the selected video and all older videos
-      const videosToMark = [videoId, ...(olderVideoIds || [])];
+      const videosToMark = [...olderVideoIds, videoId];
       
-      const { error } = await supabase
-        .from("watched_videos")
-        .upsert(
-          videosToMark.map(vid => ({
-            user_id: user.id,
-            video_id: vid,
-            channel_id: channelId,
-          })),
-          { onConflict: "user_id,video_id" }
-        );
+      // Track each video with its duration
+      const { data: cachedVideos } = await supabase
+        .from("cached_videos")
+        .select("video_id, duration_seconds, channel_id")
+        .eq("channel_id", channelId)
+        .in("video_id", videosToMark);
 
-      if (error) throw error;
+      if (cachedVideos) {
+        const trackVideoPromises = cachedVideos.map(async (video) => {
+          const minutes = Math.ceil((video.duration_seconds || 0) / 60);
+          
+          // Track the video time to category
+          const { data: channelData } = await supabase
+            .from("youtube_channels")
+            .select("category")
+            .eq("channel_id", video.channel_id)
+            .maybeSingle();
+
+          const category = channelData?.category || "Allgemein";
+
+          // Update skill category
+          const { data: existingCategory } = await supabase
+            .from("skill_categories")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("category_name", category)
+            .maybeSingle();
+
+          if (existingCategory) {
+            await supabase
+              .from("skill_categories")
+              .update({
+                total_time_minutes: existingCategory.total_time_minutes + minutes,
+              })
+              .eq("id", existingCategory.id);
+          } else {
+            await supabase.from("skill_categories").insert({
+              user_id: user.id,
+              category_name: category,
+              total_time_minutes: minutes,
+            });
+          }
+
+          // Update daily activity
+          const today = new Date().toISOString().split("T")[0];
+          const { data: existingActivity } = await supabase
+            .from("daily_activity")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("activity_date", today)
+            .maybeSingle();
+
+          if (existingActivity) {
+            await supabase
+              .from("daily_activity")
+              .update({
+                total_watch_time_minutes: existingActivity.total_watch_time_minutes + minutes,
+                videos_watched: existingActivity.videos_watched + 1,
+              })
+              .eq("id", existingActivity.id);
+          } else {
+            await supabase.from("daily_activity").insert({
+              user_id: user.id,
+              activity_date: today,
+              total_watch_time_minutes: minutes,
+              videos_watched: 1,
+            });
+          }
+
+          // Insert watched video
+          return supabase.from("watched_videos").insert({
+            user_id: user.id,
+            video_id: video.video_id,
+            channel_id: video.channel_id,
+          });
+        });
+
+        await Promise.all(trackVideoPromises);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["watched-videos"] });
       queryClient.invalidateQueries({ queryKey: ["cached-videos"] });
+      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-activity"] });
     },
   });
 
@@ -104,8 +174,8 @@ export const useWatchedVideos = (channelId?: string) => {
     return watchedVideos.some(w => w.video_id === videoId);
   };
 
-  const markAsWatched = (videoId: string, channelId: string, olderVideoIds?: string[]) => {
-    markAsWatchedMutation.mutate({ videoId, channelId, olderVideoIds });
+  const markAsWatched = (videoId: string, channelId: string, olderVideoIds?: string[], durationMinutes?: number) => {
+    markAsWatchedMutation.mutate({ videoId, channelId, olderVideoIds, durationMinutes: durationMinutes || 0 });
   };
 
   const toggleWatched = (videoId: string, channelId: string) => {
