@@ -1,6 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useEffect, useRef, useState } from "react";
-import { useTrackWatchedVideo } from "@/hooks/useTrackWatchedVideo";
+import { useEffect, useRef } from "react";
 
 interface VideoPlayerProps {
   videoId: string | null;
@@ -12,14 +11,11 @@ interface VideoPlayerProps {
   onVideoEnd: () => void;
 }
 
-export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, durationMinutes, onClose, onVideoEnd }: VideoPlayerProps) => {
+export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoPlayerProps) => {
   const playerRef = useRef<any>(null);
-  const [hasTracked, setHasTracked] = useState(false);
-  const { trackVideo } = useTrackWatchedVideo();
 
   useEffect(() => {
     if (!videoId) return;
-    setHasTracked(false);
 
     // Load YouTube IFrame API
     if (!(window as any).YT) {
@@ -48,11 +44,6 @@ export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, durat
           onStateChange: (event: any) => {
             // 0 = ended
             if (event.data === 0) {
-              // Track video when it ends
-              if (!hasTracked && videoId) {
-                trackVideo(videoId, channelId, durationMinutes);
-                setHasTracked(true);
-              }
               onVideoEnd();
             }
           },
@@ -73,7 +64,7 @@ export const VideoPlayer = ({ videoId, videoTitle, channelId, channelName, durat
         playerRef.current = null;
       }
     };
-  }, [videoId, channelId, durationMinutes, onVideoEnd, trackVideo, hasTracked]);
+  }, [videoId, onVideoEnd]);
 
   return (
     <Dialog open={!!videoId} onOpenChange={onClose}>
