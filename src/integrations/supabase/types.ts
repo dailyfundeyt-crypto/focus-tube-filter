@@ -61,6 +61,27 @@ export type Database = {
           },
         ]
       }
+      channel_folders: {
+        Row: {
+          created_at: string
+          folder_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_name: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_activity: {
         Row: {
           activity_date: string
@@ -165,6 +186,7 @@ export type Database = {
           channel_name: string
           channel_thumbnail: string | null
           daily_video_goal: number | null
+          folder_id: string | null
           id: string
           user_id: string
         }
@@ -175,6 +197,7 @@ export type Database = {
           channel_name: string
           channel_thumbnail?: string | null
           daily_video_goal?: number | null
+          folder_id?: string | null
           id?: string
           user_id: string
         }
@@ -185,10 +208,19 @@ export type Database = {
           channel_name?: string
           channel_thumbnail?: string | null
           daily_video_goal?: number | null
+          folder_id?: string | null
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "youtube_channels_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "channel_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
