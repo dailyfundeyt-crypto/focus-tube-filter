@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { YearActivityGrid } from "@/components/YearActivityGrid";
 import { SkillProgress } from "@/components/SkillProgress";
 import { CategoryManagement } from "@/components/CategoryManagement";
+import { FolderManagement } from "@/components/FolderManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import logo from "@/assets/logo.png";
 
@@ -247,6 +248,7 @@ export default function Dashboard() {
             </p>
           </div>
           <CategoryManagement />
+          <FolderManagement />
           <SkillProgress />
         </TabsContent>
       </Tabs>

@@ -6,25 +6,41 @@ import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
 import { InstallPWA } from "@/components/InstallPWA";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FolderManagement } from "@/components/FolderManagement";
 import { Button } from "@/components/ui/button";
-import { LogOut, RefreshCw, Youtube, BarChart3 } from "lucide-react";
+import { LogOut, RefreshCw, Youtube, BarChart3, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WatchedVideosTab } from "@/components/WatchedVideosTab";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
+// Helper function to parse ISO 8601 duration to seconds
+const parseDuration = (duration: string): number => {
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 0;
+  const hours = parseInt(match[1] || "0");
+  const minutes = parseInt(match[2] || "0");
+  const seconds = parseInt(match[3] || "0");
+  return hours * 3600 + minutes * 60 + seconds;
+};
 const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<{
     id: string;
     name: string;
   } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isUpdatingDurations, setIsUpdatingDurations] = useState(false);
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
   const { data: channels } = useQuery({
     queryKey: ["channels", user?.id],
     queryFn: async () => {
@@ -89,7 +105,7 @@ const Index = () => {
         .eq("user_id", user.id)
         .eq("channel_id", selectedChannel.id);
       
-      // Insert new videos
+      // Insert new videos with duration
       for (const video of allVideos) {
         await supabase.from("cached_videos").insert({
           user_id: user.id,
@@ -99,18 +115,28 @@ const Index = () => {
           thumbnail: video.snippet.thumbnails.medium.url,
           published_at: video.snippet.publishedAt,
           video_url: `https://www.youtube.com/watch?v=${video.id}`,
+          duration_seconds: video.contentDetails?.duration ? parseDuration(video.contentDetails.duration) : 0,
         });
       }
 
-      toast({ title: "Videos aktualisiert!", description: `${allVideos.length} Videos geladen` });
+      toast.success(`${allVideos.length} Videos aktualisiert`);
     } catch (error: any) {
-      toast({
-        title: "Fehler",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast.error(error.message || "Fehler beim Aktualisieren");
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleUpdateDurations = async () => {
+    setIsUpdatingDurations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-video-durations");
+      if (error) throw error;
+      toast.success(data.message || "Dauern aktualisiert");
+    } catch (error: any) {
+      toast.error(error.message || "Fehler beim Aktualisieren");
+    } finally {
+      setIsUpdatingDurations(false);
     }
   };
 
@@ -151,6 +177,35 @@ const Index = () => {
                   Updaten
                 </Button>
               )}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Einstellungen</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-6 mt-6">
+                    <FolderManagement />
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold">Video-Dauern</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Aktualisiere fehlende Video-Dauern für korrekte Zeiterfassung
+                      </p>
+                      <Button
+                        onClick={handleUpdateDurations}
+                        disabled={isUpdatingDurations}
+                        className="w-full"
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isUpdatingDurations ? 'animate-spin' : ''}`} />
+                        {isUpdatingDurations ? "Wird aktualisiert..." : "Dauern aktualisieren"}
+                      </Button>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
               <ThemeToggle />
               <Button variant="outline" size="sm" onClick={signOut} className="hidden md:flex">
                 <LogOut className="h-4 w-4 mr-2" />
