@@ -6,7 +6,7 @@ import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
 import { InstallPWA } from "@/components/InstallPWA";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { FolderManagement } from "@/components/FolderManagement";
+import { CategoryManagement } from "@/components/CategoryManagement";
 import { Button } from "@/components/ui/button";
 import { LogOut, RefreshCw, Youtube, BarChart3, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -188,7 +188,7 @@ const Index = () => {
                     <SheetTitle>Einstellungen</SheetTitle>
                   </SheetHeader>
                   <div className="space-y-6 mt-6">
-                    <FolderManagement />
+                    <CategoryManagement />
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold">Video-Dauern</h3>
                       <p className="text-sm text-muted-foreground">
