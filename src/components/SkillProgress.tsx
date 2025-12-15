@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Skeleton } from "./ui/skeleton";
 import { Trophy, Target, Sparkles } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SkillCategory {
   id: string;
@@ -18,17 +19,23 @@ const SKILL_LEVELS = {
 };
 
 export const SkillProgress = () => {
+  const { user } = useAuth();
+
   const { data: categories, isLoading } = useQuery({
-    queryKey: ["skill-categories"],
+    queryKey: ["skill-categories", user?.id],
     queryFn: async () => {
+      if (!user) return [];
+
       const { data, error } = await supabase
         .from("skill_categories")
         .select("*")
+        .eq("user_id", user.id)
         .order("total_time_minutes", { ascending: false });
 
       if (error) throw error;
       return data as SkillCategory[];
     },
+    enabled: !!user,
   });
 
   const getSkillLevel = (minutes: number) => {

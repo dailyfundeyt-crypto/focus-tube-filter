@@ -128,7 +128,7 @@ export const useWatchedVideos = (channelId?: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["watched-videos"] });
       queryClient.invalidateQueries({ queryKey: ["cached-videos"] });
-      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["daily-activity"] });
     },
   });
