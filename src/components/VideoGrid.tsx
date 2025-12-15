@@ -92,33 +92,17 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
   const handleVideoClick = (videoId: string, title: string) => {
     if (multiSelectMode) return;
     
+    // Only open the video player - don't mark as watched automatically
     setSelectedVideo({ id: videoId, title });
-    
-    // Find all videos older than the selected one
-    const selectedIndex = unwatchedVideos.findIndex(v => v.video_id === videoId);
-    const olderVideoIds = unwatchedVideos
-      .slice(0, selectedIndex)
-      .map(v => v.video_id);
-    
-    const selectedVideoData = unwatchedVideos.find(v => v.video_id === videoId);
-    const durationMinutes = Math.ceil((selectedVideoData?.duration_seconds || 0) / 60);
-    
-    // Mark selected video and all older videos as watched
-    markAsWatched(videoId, channelId, olderVideoIds, durationMinutes);
   };
 
   const handleMarkAsWatched = (videoId: string) => {
-    // Find all videos older than the selected one
-    const selectedIndex = unwatchedVideos.findIndex(v => v.video_id === videoId);
-    const olderVideoIds = unwatchedVideos
-      .slice(0, selectedIndex)
-      .map(v => v.video_id);
-    
+    // Mark only this specific video as watched (not older videos)
     const selectedVideoData = unwatchedVideos.find(v => v.video_id === videoId);
     const durationMinutes = Math.ceil((selectedVideoData?.duration_seconds || 0) / 60);
     
-    // Mark selected video and all older videos as watched
-    markAsWatched(videoId, channelId, olderVideoIds, durationMinutes);
+    // Mark only this video as watched - no older videos
+    markAsWatched(videoId, channelId, [], durationMinutes);
   };
 
   const handleToggleMultiSelect = () => {
@@ -141,30 +125,12 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
   const handleMarkSelectedAsWatched = () => {
     if (selectedVideos.size === 0) return;
 
-    // Find the indices of selected videos
-    const selectedIndices = Array.from(selectedVideos).map(vid => 
-      unwatchedVideos.findIndex(v => v.video_id === vid)
-    ).filter(idx => idx !== -1);
-
-    if (selectedIndices.length === 0) return;
-
-    // Find the earliest (oldest) selected video
-    const earliestIndex = Math.min(...selectedIndices);
-    const latestIndex = Math.max(...selectedIndices);
-
-    // Mark all videos from earliest to latest as watched
-    const videosToMark = unwatchedVideos
-      .slice(0, latestIndex + 1)
-      .map(v => v.video_id);
-
-    // Mark all these videos as watched
-    if (videosToMark.length > 0) {
-      const lastVideoId = videosToMark[videosToMark.length - 1];
-      const olderVideoIds = videosToMark.slice(0, -1);
-      const lastVideoData = unwatchedVideos.find(v => v.video_id === lastVideoId);
-      const durationMinutes = Math.ceil((lastVideoData?.duration_seconds || 0) / 60);
-      markAsWatched(lastVideoId, channelId, olderVideoIds, durationMinutes);
-    }
+    // Mark only the selected videos as watched (not all older videos)
+    selectedVideos.forEach(videoId => {
+      const videoData = unwatchedVideos.find(v => v.video_id === videoId);
+      const durationMinutes = Math.ceil((videoData?.duration_seconds || 0) / 60);
+      markAsWatched(videoId, channelId, [], durationMinutes);
+    });
 
     setMultiSelectMode(false);
     setSelectedVideos(new Set());
