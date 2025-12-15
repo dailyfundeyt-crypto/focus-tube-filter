@@ -20,16 +20,20 @@ export const CategoryManagement = () => {
   const { user } = useAuth();
 
   const { data: categories, isLoading } = useQuery({
-    queryKey: ["skill-categories"],
+    queryKey: ["skill-categories", user?.id],
     queryFn: async () => {
+      if (!user) return [];
+
       const { data, error } = await supabase
         .from("skill_categories")
         .select("*")
+        .eq("user_id", user.id)
         .order("category_name");
 
       if (error) throw error;
       return data as Category[];
     },
+    enabled: !!user,
   });
 
   const createMutation = useMutation({
@@ -47,7 +51,7 @@ export const CategoryManagement = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
       toast.success("Kategorie erstellt");
       setNewCategory("");
     },
@@ -66,7 +70,7 @@ export const CategoryManagement = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["skill-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
       toast.success("Kategorie gelöscht");
     },
     onError: () => {
