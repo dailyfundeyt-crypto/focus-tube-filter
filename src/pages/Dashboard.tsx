@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Circle, ArrowLeft, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { TimerIndicator } from "@/components/TimerIndicator";
 import { YearActivityGrid } from "@/components/YearActivityGrid";
 import { SkillProgress } from "@/components/SkillProgress";
 import { CategoryManagement } from "@/components/CategoryManagement";
@@ -117,6 +118,7 @@ export default function Dashboard() {
               <h1 className="text-lg md:text-xl font-semibold">Dashboard</h1>
             </div>
             <div className="flex items-center gap-1 md:gap-2">
+              <TimerIndicator />
               <Button
                 variant="outline"
                 size="sm"
