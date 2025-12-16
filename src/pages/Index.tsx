@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CategoryManagement } from "@/components/CategoryManagement";
 import { Button } from "@/components/ui/button";
 import { LogOut, RefreshCw, Youtube, BarChart3, Settings } from "lucide-react";
+import { TimerIndicator } from "@/components/TimerIndicator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -158,6 +159,7 @@ const Index = () => {
               <h1 className="text-lg md:text-xl font-semibold">YouTube Viewer</h1>
             </div>
             <div className="flex items-center gap-1 md:gap-2">
+              <TimerIndicator />
               <Button
                 variant="outline"
                 size="sm"
