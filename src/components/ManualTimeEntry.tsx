@@ -22,6 +22,15 @@ interface Category {
   total_time_minutes: number;
 }
 
+const TIMER_STORAGE_KEY = "skill-timer-state";
+
+interface TimerState {
+  timerCategory: string;
+  startTime: number | null; // timestamp when timer started
+  pausedElapsed: number; // seconds elapsed when paused
+  isRunning: boolean;
+}
+
 export const ManualTimeEntry = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [hours, setHours] = useState("");
@@ -31,10 +40,48 @@ export const ManualTimeEntry = () => {
   const [timerCategory, setTimerCategory] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [pausedElapsed, setPausedElapsed] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Load timer state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(TIMER_STORAGE_KEY);
+    if (saved) {
+      try {
+        const state: TimerState = JSON.parse(saved);
+        setTimerCategory(state.timerCategory);
+        setPausedElapsed(state.pausedElapsed);
+        
+        if (state.isRunning && state.startTime) {
+          // Calculate elapsed time since start
+          const now = Date.now();
+          const runningElapsed = Math.floor((now - state.startTime) / 1000);
+          setElapsedSeconds(state.pausedElapsed + runningElapsed);
+          setStartTime(state.startTime);
+          setIsRunning(true);
+        } else {
+          setElapsedSeconds(state.pausedElapsed);
+        }
+      } catch (e) {
+        console.error("Failed to parse timer state", e);
+      }
+    }
+  }, []);
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    const state: TimerState = {
+      timerCategory,
+      startTime,
+      pausedElapsed,
+      isRunning,
+    };
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
+  }, [timerCategory, startTime, pausedElapsed, isRunning]);
 
   const { data: categories } = useQuery({
     queryKey: ["skill-categories", user?.id],
@@ -111,8 +158,12 @@ export const ManualTimeEntry = () => {
       setHours("");
       setMinutes("");
       setSelectedCategory("");
+      // Reset timer state
       setElapsedSeconds(0);
       setTimerCategory("");
+      setStartTime(null);
+      setPausedElapsed(0);
+      localStorage.removeItem(TIMER_STORAGE_KEY);
     },
     onError: (error: Error) => {
       toast.error("Fehler: " + error.message);
@@ -142,11 +193,14 @@ export const ManualTimeEntry = () => {
       toast.error("Bitte wähle zuerst eine Kategorie");
       return;
     }
+    setStartTime(Date.now());
     setIsRunning(true);
   };
 
   const handlePauseTimer = () => {
     setIsRunning(false);
+    setPausedElapsed(elapsedSeconds);
+    setStartTime(null);
   };
 
   const handleStopAndSave = () => {
@@ -169,6 +223,9 @@ export const ManualTimeEntry = () => {
   const handleResetTimer = () => {
     setIsRunning(false);
     setElapsedSeconds(0);
+    setStartTime(null);
+    setPausedElapsed(0);
+    localStorage.removeItem(TIMER_STORAGE_KEY);
   };
 
   return (
