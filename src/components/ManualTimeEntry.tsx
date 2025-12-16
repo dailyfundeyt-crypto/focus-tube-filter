@@ -84,10 +84,18 @@ export const ManualTimeEntry = () => {
     mutationFn: async ({ categoryId, timeMinutes }: { categoryId: string; timeMinutes: number }) => {
       if (!user) throw new Error("Nicht angemeldet");
 
-      const category = categories?.find((c) => c.id === categoryId);
-      if (!category) throw new Error("Kategorie nicht gefunden");
+      // Fetch current value directly from database to avoid stale data
+      const { data: currentCategory, error: fetchError } = await supabase
+        .from("skill_categories")
+        .select("total_time_minutes")
+        .eq("id", categoryId)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      const newTotal = category.total_time_minutes + timeMinutes;
+      if (fetchError) throw fetchError;
+      if (!currentCategory) throw new Error("Kategorie nicht gefunden");
+
+      const newTotal = (currentCategory.total_time_minutes || 0) + timeMinutes;
 
       const { error } = await supabase
         .from("skill_categories")
