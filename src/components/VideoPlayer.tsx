@@ -12,13 +12,60 @@ interface VideoPlayerProps {
   onMarkAsWatched?: (videoId: string, durationMinutes: number) => void;
 }
 
-export const VideoPlayer = ({ 
-  videoId, 
-  videoTitle, 
+const YT_IFRAME_API_SRC = "https://www.youtube.com/iframe_api";
+
+let ytApiReadyPromise: Promise<void> | null = null;
+
+const ensureYouTubeIframeAPI = () => {
+  if ((window as any).YT?.Player) return Promise.resolve();
+
+  if (ytApiReadyPromise) return ytApiReadyPromise;
+
+  ytApiReadyPromise = new Promise<void>((resolve) => {
+    // Load script once
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      `script[src="${YT_IFRAME_API_SRC}"]`
+    );
+
+    if (!existingScript) {
+      const tag = document.createElement("script");
+      tag.src = YT_IFRAME_API_SRC;
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    // Preserve any existing callback
+    const prevReady = (window as any).onYouTubeIframeAPIReady;
+    (window as any).onYouTubeIframeAPIReady = () => {
+      try {
+        if (typeof prevReady === "function") prevReady();
+      } catch {
+        // ignore
+      }
+      resolve();
+    };
+
+    // Fallback: if callback already fired (or gets missed), poll until ready
+    const poll = () => {
+      if ((window as any).YT?.Player) {
+        resolve();
+        return;
+      }
+      setTimeout(poll, 50);
+    };
+    poll();
+  });
+
+  return ytApiReadyPromise;
+};
+
+export const VideoPlayer = ({
+  videoId,
+  videoTitle,
   durationMinutes,
-  onClose, 
+  onClose,
   onVideoEnd,
-  onMarkAsWatched 
+  onMarkAsWatched,
 }: VideoPlayerProps) => {
   const playerRef = useRef<any>(null);
   const hasMarkedAsWatched = useRef(false);
@@ -30,19 +77,19 @@ export const VideoPlayer = ({
       onMarkAsWatched(videoId, durationMinutes);
       hasMarkedAsWatched.current = true;
     }
-    
+
     // Destroy player before closing
     if (playerRef.current) {
       try {
         playerRef.current.destroy();
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
       playerRef.current = null;
     }
-    
+
     // Increment key to force new player element on next open
-    setPlayerKey(k => k + 1);
+    setPlayerKey((k) => k + 1);
     onClose();
   }, [videoId, durationMinutes, onMarkAsWatched, onClose]);
 
@@ -53,50 +100,50 @@ export const VideoPlayer = ({
 
   useEffect(() => {
     if (!videoId) return;
+    let cancelled = false;
 
-    // Increment key to ensure fresh player element
-    setPlayerKey(k => k + 1);
+    // Force a fresh container element
+    setPlayerKey((k) => k + 1);
 
-    // Load YouTube IFrame API
-    const loadYouTubeAPI = () => {
-      if (!(window as any).YT) {
-        const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName("script")[0];
-        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-      }
-    };
+    const initPlayer = async () => {
+      await ensureYouTubeIframeAPI();
+      if (cancelled) return;
 
-    loadYouTubeAPI();
-
-    const initPlayer = () => {
-      if (!(window as any).YT || !(window as any).YT.Player) {
-        // Wait for API to load
-        setTimeout(initPlayer, 100);
-        return;
-      }
-
-      // Destroy existing player if it exists
+      // Destroy any existing player
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
-        } catch (e) {
-          // Ignore errors
+        } catch {
+          // ignore
         }
         playerRef.current = null;
       }
 
-      // Small delay to ensure DOM element exists
-      setTimeout(() => {
-        const playerElement = document.getElementById(`youtube-player-${videoId}`);
-        if (!playerElement) return;
+      const containerId = `youtube-player-${videoId}`;
 
-        playerRef.current = new (window as any).YT.Player(`youtube-player-${videoId}`, {
-          videoId: videoId,
+      // The dialog content is portaled and animated; the container might not be in the DOM yet.
+      const mountPlayer = (attempt = 0) => {
+        if (cancelled) return;
+
+        const el = document.getElementById(containerId);
+        if (!el) {
+          if (attempt < 80) {
+            setTimeout(() => mountPlayer(attempt + 1), 50);
+          } else {
+            console.warn("[VideoPlayer] Container not mounted in time:", containerId);
+          }
+          return;
+        }
+
+        if (cancelled) return;
+
+        playerRef.current = new (window as any).YT.Player(containerId, {
+          videoId,
           playerVars: {
             autoplay: 1,
             modestbranding: 1,
             rel: 0,
+            playsinline: 1,
           },
           events: {
             onStateChange: (event: any) => {
@@ -111,22 +158,20 @@ export const VideoPlayer = ({
             },
           },
         });
-      }, 50);
+      };
+
+      mountPlayer();
     };
 
-    if ((window as any).YT && (window as any).YT.Player) {
-      initPlayer();
-    } else {
-      (window as any).onYouTubeIframeAPIReady = initPlayer;
-    }
+    initPlayer();
 
-    // Cleanup function
     return () => {
+      cancelled = true;
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
-        } catch (e) {
-          // Ignore errors during cleanup
+        } catch {
+          // ignore
         }
         playerRef.current = null;
       }
@@ -138,10 +183,10 @@ export const VideoPlayer = ({
       <DialogContent className="max-w-5xl w-full p-0 overflow-hidden">
         <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
           {videoId && (
-            <div 
+            <div
               key={`${videoId}-${playerKey}`}
-              id={`youtube-player-${videoId}`} 
-              className="absolute inset-0 w-full h-full" 
+              id={`youtube-player-${videoId}`}
+              className="absolute inset-0 w-full h-full"
             />
           )}
         </div>
