@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface VideoPlayerProps {
   videoId: string | null;
@@ -9,10 +9,33 @@ interface VideoPlayerProps {
   durationMinutes: number;
   onClose: () => void;
   onVideoEnd: () => void;
+  onMarkAsWatched?: (videoId: string, durationMinutes: number) => void;
 }
 
-export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoPlayerProps) => {
+export const VideoPlayer = ({ 
+  videoId, 
+  videoTitle, 
+  durationMinutes,
+  onClose, 
+  onVideoEnd,
+  onMarkAsWatched 
+}: VideoPlayerProps) => {
   const playerRef = useRef<any>(null);
+  const hasMarkedAsWatched = useRef(false);
+
+  // Mark video as watched when closing
+  const handleClose = useCallback(() => {
+    if (videoId && !hasMarkedAsWatched.current && onMarkAsWatched) {
+      onMarkAsWatched(videoId, durationMinutes);
+      hasMarkedAsWatched.current = true;
+    }
+    onClose();
+  }, [videoId, durationMinutes, onMarkAsWatched, onClose]);
+
+  // Reset the watched flag when video changes
+  useEffect(() => {
+    hasMarkedAsWatched.current = false;
+  }, [videoId]);
 
   useEffect(() => {
     if (!videoId) return;
@@ -44,6 +67,10 @@ export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoP
           onStateChange: (event: any) => {
             // 0 = ended
             if (event.data === 0) {
+              if (!hasMarkedAsWatched.current && onMarkAsWatched) {
+                onMarkAsWatched(videoId, durationMinutes);
+                hasMarkedAsWatched.current = true;
+              }
               onVideoEnd();
             }
           },
@@ -64,10 +91,10 @@ export const VideoPlayer = ({ videoId, videoTitle, onClose, onVideoEnd }: VideoP
         playerRef.current = null;
       }
     };
-  }, [videoId, onVideoEnd]);
+  }, [videoId, onVideoEnd, onMarkAsWatched, durationMinutes]);
 
   return (
-    <Dialog open={!!videoId} onOpenChange={onClose}>
+    <Dialog open={!!videoId} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-5xl w-full p-0 overflow-hidden">
         <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
           <div id="youtube-player" className="absolute inset-0 w-full h-full" />
