@@ -1,5 +1,5 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 interface VideoPlayerProps {
   videoId: string | null;
@@ -22,6 +22,7 @@ export const VideoPlayer = ({
 }: VideoPlayerProps) => {
   const playerRef = useRef<any>(null);
   const hasMarkedAsWatched = useRef(false);
+  const [playerKey, setPlayerKey] = useState(0);
 
   // Mark video as watched when closing
   const handleClose = useCallback(() => {
@@ -29,6 +30,19 @@ export const VideoPlayer = ({
       onMarkAsWatched(videoId, durationMinutes);
       hasMarkedAsWatched.current = true;
     }
+    
+    // Destroy player before closing
+    if (playerRef.current) {
+      try {
+        playerRef.current.destroy();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      playerRef.current = null;
+    }
+    
+    // Increment key to force new player element on next open
+    setPlayerKey(k => k + 1);
     onClose();
   }, [videoId, durationMinutes, onMarkAsWatched, onClose]);
 
@@ -40,42 +54,64 @@ export const VideoPlayer = ({
   useEffect(() => {
     if (!videoId) return;
 
+    // Increment key to ensure fresh player element
+    setPlayerKey(k => k + 1);
+
     // Load YouTube IFrame API
-    if (!(window as any).YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    }
+    const loadYouTubeAPI = () => {
+      if (!(window as any).YT) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName("script")[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      }
+    };
+
+    loadYouTubeAPI();
 
     const initPlayer = () => {
-      if (!(window as any).YT || !(window as any).YT.Player) return;
+      if (!(window as any).YT || !(window as any).YT.Player) {
+        // Wait for API to load
+        setTimeout(initPlayer, 100);
+        return;
+      }
 
       // Destroy existing player if it exists
       if (playerRef.current) {
-        playerRef.current.destroy();
+        try {
+          playerRef.current.destroy();
+        } catch (e) {
+          // Ignore errors
+        }
+        playerRef.current = null;
       }
 
-      playerRef.current = new (window as any).YT.Player("youtube-player", {
-        videoId: videoId,
-        playerVars: {
-          autoplay: 1,
-          modestbranding: 1,
-          rel: 0,
-        },
-        events: {
-          onStateChange: (event: any) => {
-            // 0 = ended
-            if (event.data === 0) {
-              if (!hasMarkedAsWatched.current && onMarkAsWatched) {
-                onMarkAsWatched(videoId, durationMinutes);
-                hasMarkedAsWatched.current = true;
-              }
-              onVideoEnd();
-            }
+      // Small delay to ensure DOM element exists
+      setTimeout(() => {
+        const playerElement = document.getElementById(`youtube-player-${videoId}`);
+        if (!playerElement) return;
+
+        playerRef.current = new (window as any).YT.Player(`youtube-player-${videoId}`, {
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            modestbranding: 1,
+            rel: 0,
           },
-        },
-      });
+          events: {
+            onStateChange: (event: any) => {
+              // 0 = ended
+              if (event.data === 0) {
+                if (!hasMarkedAsWatched.current && onMarkAsWatched) {
+                  onMarkAsWatched(videoId, durationMinutes);
+                  hasMarkedAsWatched.current = true;
+                }
+                onVideoEnd();
+              }
+            },
+          },
+        });
+      }, 50);
     };
 
     if ((window as any).YT && (window as any).YT.Player) {
@@ -87,7 +123,11 @@ export const VideoPlayer = ({
     // Cleanup function
     return () => {
       if (playerRef.current) {
-        playerRef.current.destroy();
+        try {
+          playerRef.current.destroy();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
         playerRef.current = null;
       }
     };
@@ -97,7 +137,13 @@ export const VideoPlayer = ({
     <Dialog open={!!videoId} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="max-w-5xl w-full p-0 overflow-hidden">
         <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-          <div id="youtube-player" className="absolute inset-0 w-full h-full" />
+          {videoId && (
+            <div 
+              key={`${videoId}-${playerKey}`}
+              id={`youtube-player-${videoId}`} 
+              className="absolute inset-0 w-full h-full" 
+            />
+          )}
         </div>
         <div className="p-4">
           <h3 className="font-medium">{videoTitle}</h3>
