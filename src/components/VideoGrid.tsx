@@ -190,6 +190,9 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
         }
         onClose={() => setSelectedVideo(null)}
         onVideoEnd={() => setSelectedVideo(null)}
+        onMarkAsWatched={(videoId, durationMinutes) => {
+          markAsWatched(videoId, channelId, [], durationMinutes);
+        }}
       />
     </div>
   );
