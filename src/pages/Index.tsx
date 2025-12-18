@@ -23,6 +23,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 
 // Helper function to parse ISO 8601 duration to seconds
 const parseDuration = (duration: string): number => {
@@ -223,40 +224,40 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-          {/* Sidebar */}
-          <aside className="space-y-4">
+          {/* Sidebar - Desktop */}
+          <aside className="space-y-4 hidden lg:block">
             <AddChannelDialog />
-            <div className="lg:block hidden">
-              <ChannelList
-                onChannelSelect={(id, name) => setSelectedChannel({ id, name })}
-                selectedChannelId={selectedChannel?.id || null}
-              />
-            </div>
-            
-            {/* Mobile Channel Selector */}
-            <div className="lg:hidden">
-              <select
-                className="w-full p-3 rounded-lg border border-border bg-card text-foreground"
-                value={selectedChannel?.id || ""}
-                onChange={(e) => {
-                  const channelId = e.target.value;
-                  const channelName = e.target.options[e.target.selectedIndex].text;
-                  if (channelId) {
-                    setSelectedChannel({ id: channelId, name: channelName });
-                  } else {
-                    setSelectedChannel(null);
-                  }
-                }}
-              >
-                <option value="">Kanal auswählen...</option>
-                {channels?.map((channel) => (
-                  <option key={channel.id} value={channel.channel_id}>
-                    {channel.channel_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ChannelList
+              onChannelSelect={(id, name) => setSelectedChannel({ id, name })}
+              selectedChannelId={selectedChannel?.id || null}
+            />
           </aside>
+          
+          {/* Mobile Channel Sheet */}
+          <div className="lg:hidden flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="flex-1 justify-start gap-2">
+                  <Menu className="h-4 w-4" />
+                  {selectedChannel ? selectedChannel.name : "Kanal auswählen..."}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] sm:w-[350px] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Kanäle & Ordner</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 space-y-4">
+                  <AddChannelDialog />
+                  <ChannelList
+                    onChannelSelect={(id, name) => {
+                      setSelectedChannel({ id, name });
+                    }}
+                    selectedChannelId={selectedChannel?.id || null}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
           {/* Main Content */}
           <main>
