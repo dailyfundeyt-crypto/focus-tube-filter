@@ -162,7 +162,8 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
         <p className="text-xs text-muted-foreground">{channel.daily_video_goal || 1} Videos/Tag</p>
       </div>
 
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+      {/* Actions - always visible on mobile, hover on desktop */}
+      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
         <Select
           value={channel.category || "none"}
           onValueChange={(v) => updateCategoryMutation.mutate({ id: channel.id, category: v === "none" ? null : v })}
