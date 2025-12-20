@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTimerState } from "./useTimerState";
 
 export const useWatchedVideos = (channelId?: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isTimerActive, timerCategory, getAvailableMinutes, consumeTime } = useTimerState();
 
   // Fetch watched videos for this channel
   const { data: watchedVideos = [] } = useQuery({
@@ -45,6 +47,9 @@ export const useWatchedVideos = (channelId?: string) => {
 
       const videosToMark = [...olderVideoIds, videoId];
       
+      // Check if timer is active and has available time
+      const availableTimerMinutes = isTimerActive ? getAvailableMinutes() : 0;
+      
       // Track each video with its duration
       const { data: cachedVideos } = await supabase
         .from("cached_videos")
@@ -53,38 +58,57 @@ export const useWatchedVideos = (channelId?: string) => {
         .in("video_id", videosToMark);
 
       if (cachedVideos) {
+        let totalTimerMinutesUsed = 0;
+        
         const trackVideoPromises = cachedVideos.map(async (video) => {
-          const minutes = Math.ceil((video.duration_seconds || 0) / 60);
+          // Calculate video duration in minutes
+          const videoDurationMinutes = Math.ceil((video.duration_seconds || 0) / 60);
           
-          // Track the video time to category
-          const { data: channelData } = await supabase
-            .from("youtube_channels")
-            .select("category")
-            .eq("channel_id", video.channel_id)
-            .maybeSingle();
+          // Determine time to track: use timer time if available, otherwise video duration
+          let minutesToTrack: number;
+          let categoryToUse: string;
+          
+          if (isTimerActive && availableTimerMinutes > totalTimerMinutesUsed) {
+            // Use timer time (min of video duration and remaining timer time)
+            const remainingTimerMinutes = availableTimerMinutes - totalTimerMinutesUsed;
+            minutesToTrack = Math.min(videoDurationMinutes, remainingTimerMinutes);
+            totalTimerMinutesUsed += minutesToTrack;
+            
+            // Use timer category if set
+            categoryToUse = timerCategory || "Allgemein";
+          } else {
+            // No timer, use video duration and channel category
+            minutesToTrack = videoDurationMinutes;
+            
+            const { data: channelData } = await supabase
+              .from("youtube_channels")
+              .select("category")
+              .eq("channel_id", video.channel_id)
+              .maybeSingle();
 
-          const category = channelData?.category || "Allgemein";
+            categoryToUse = channelData?.category || "Allgemein";
+          }
 
           // Update skill category
           const { data: existingCategory } = await supabase
             .from("skill_categories")
             .select("*")
             .eq("user_id", user.id)
-            .eq("category_name", category)
+            .eq("category_name", categoryToUse)
             .maybeSingle();
 
           if (existingCategory) {
             await supabase
               .from("skill_categories")
               .update({
-                total_time_minutes: existingCategory.total_time_minutes + minutes,
+                total_time_minutes: existingCategory.total_time_minutes + minutesToTrack,
               })
               .eq("id", existingCategory.id);
           } else {
             await supabase.from("skill_categories").insert({
               user_id: user.id,
-              category_name: category,
-              total_time_minutes: minutes,
+              category_name: categoryToUse,
+              total_time_minutes: minutesToTrack,
             });
           }
 
@@ -101,7 +125,7 @@ export const useWatchedVideos = (channelId?: string) => {
             await supabase
               .from("daily_activity")
               .update({
-                total_watch_time_minutes: existingActivity.total_watch_time_minutes + minutes,
+                total_watch_time_minutes: existingActivity.total_watch_time_minutes + minutesToTrack,
                 videos_watched: existingActivity.videos_watched + 1,
               })
               .eq("id", existingActivity.id);
@@ -109,7 +133,7 @@ export const useWatchedVideos = (channelId?: string) => {
             await supabase.from("daily_activity").insert({
               user_id: user.id,
               activity_date: today,
-              total_watch_time_minutes: minutes,
+              total_watch_time_minutes: minutesToTrack,
               videos_watched: 1,
             });
           }
@@ -123,6 +147,11 @@ export const useWatchedVideos = (channelId?: string) => {
         });
 
         await Promise.all(trackVideoPromises);
+        
+        // Consume the used timer time
+        if (totalTimerMinutesUsed > 0) {
+          consumeTime(totalTimerMinutesUsed);
+        }
       }
     },
     onSuccess: () => {
@@ -130,6 +159,7 @@ export const useWatchedVideos = (channelId?: string) => {
       queryClient.invalidateQueries({ queryKey: ["cached-videos"] });
       queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["daily-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["year-activity"] });
     },
   });
 
@@ -187,6 +217,7 @@ export const useWatchedVideos = (channelId?: string) => {
     markAsWatched, 
     isWatched, 
     toggleWatched,
-    watchedVideos 
+    watchedVideos,
+    isTimerActive,
   };
 };

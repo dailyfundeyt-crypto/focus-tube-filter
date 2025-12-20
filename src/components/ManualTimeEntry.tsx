@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Clock, Play, Pause, Square } from "lucide-react";
+import { Plus, Clock, Play, Pause, Square, Info } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Category {
   id: string;
@@ -25,10 +26,12 @@ interface Category {
 const TIMER_STORAGE_KEY = "skill-timer-state";
 
 interface TimerState {
-  timerCategory: string;
-  startTime: number | null; // timestamp when timer started
-  pausedElapsed: number; // seconds elapsed when paused
+  timerCategory: string; // Category NAME (not ID) for use in video tracking
+  timerCategoryId: string; // Category ID for saving
+  startTime: number | null;
+  pausedElapsed: number;
   isRunning: boolean;
+  lastConsumedTime: number; // Seconds already used for video tracking
 }
 
 export const ManualTimeEntry = () => {
@@ -37,11 +40,13 @@ export const ManualTimeEntry = () => {
   const [minutes, setMinutes] = useState("");
   
   // Timer state
-  const [timerCategory, setTimerCategory] = useState<string>("");
+  const [timerCategoryId, setTimerCategoryId] = useState<string>("");
+  const [timerCategoryName, setTimerCategoryName] = useState<string>("");
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [pausedElapsed, setPausedElapsed] = useState(0);
+  const [lastConsumedTime, setLastConsumedTime] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const queryClient = useQueryClient();
@@ -53,11 +58,12 @@ export const ManualTimeEntry = () => {
     if (saved) {
       try {
         const state: TimerState = JSON.parse(saved);
-        setTimerCategory(state.timerCategory);
+        setTimerCategoryName(state.timerCategory || "");
+        setTimerCategoryId(state.timerCategoryId || "");
         setPausedElapsed(state.pausedElapsed);
+        setLastConsumedTime(state.lastConsumedTime || 0);
         
         if (state.isRunning && state.startTime) {
-          // Calculate elapsed time since start
           const now = Date.now();
           const runningElapsed = Math.floor((now - state.startTime) / 1000);
           setElapsedSeconds(state.pausedElapsed + runningElapsed);
@@ -75,13 +81,15 @@ export const ManualTimeEntry = () => {
   // Save timer state to localStorage whenever it changes
   useEffect(() => {
     const state: TimerState = {
-      timerCategory,
+      timerCategory: timerCategoryName,
+      timerCategoryId,
       startTime,
       pausedElapsed,
       isRunning,
+      lastConsumedTime,
     };
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
-  }, [timerCategory, startTime, pausedElapsed, isRunning]);
+  }, [timerCategoryName, timerCategoryId, startTime, pausedElapsed, isRunning, lastConsumedTime]);
 
   const { data: categories } = useQuery({
     queryKey: ["skill-categories", user?.id],
@@ -127,6 +135,11 @@ export const ManualTimeEntry = () => {
     return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Calculate remaining time (not consumed by video tracking)
+  const remainingSeconds = Math.max(0, elapsedSeconds - lastConsumedTime);
+  const remainingMinutes = Math.floor(remainingSeconds / 60);
+  const consumedMinutes = Math.floor(lastConsumedTime / 60);
+
   const addTimeMutation = useMutation({
     mutationFn: async ({ categoryId, timeMinutes }: { categoryId: string; timeMinutes: number }) => {
       if (!user) throw new Error("Nicht angemeldet");
@@ -151,18 +164,47 @@ export const ManualTimeEntry = () => {
         .eq("user_id", user.id);
 
       if (error) throw error;
+
+      // Also update daily activity
+      const today = new Date().toISOString().split("T")[0];
+      const { data: existingActivity } = await supabase
+        .from("daily_activity")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("activity_date", today)
+        .maybeSingle();
+
+      if (existingActivity) {
+        await supabase
+          .from("daily_activity")
+          .update({
+            total_watch_time_minutes: existingActivity.total_watch_time_minutes + timeMinutes,
+          })
+          .eq("id", existingActivity.id);
+      } else {
+        await supabase.from("daily_activity").insert({
+          user_id: user.id,
+          activity_date: today,
+          total_watch_time_minutes: timeMinutes,
+          videos_watched: 0,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["daily-activity"] });
+      queryClient.invalidateQueries({ queryKey: ["year-activity"] });
       toast.success("Zeit hinzugefügt");
       setHours("");
       setMinutes("");
       setSelectedCategory("");
       // Reset timer state
       setElapsedSeconds(0);
-      setTimerCategory("");
+      setTimerCategoryId("");
+      setTimerCategoryName("");
       setStartTime(null);
       setPausedElapsed(0);
+      setLastConsumedTime(0);
       localStorage.removeItem(TIMER_STORAGE_KEY);
     },
     onError: (error: Error) => {
@@ -188,8 +230,14 @@ export const ManualTimeEntry = () => {
     addTimeMutation.mutate({ categoryId: selectedCategory, timeMinutes: totalMinutes });
   };
 
+  const handleCategoryChange = (categoryId: string) => {
+    setTimerCategoryId(categoryId);
+    const category = categories?.find(c => c.id === categoryId);
+    setTimerCategoryName(category?.category_name || "");
+  };
+
   const handleStartTimer = () => {
-    if (!timerCategory) {
+    if (!timerCategoryId) {
       toast.error("Bitte wähle zuerst eine Kategorie");
       return;
     }
@@ -206,18 +254,23 @@ export const ManualTimeEntry = () => {
   const handleStopAndSave = () => {
     setIsRunning(false);
     
-    if (elapsedSeconds < 60) {
+    // Only save remaining time (not consumed by video tracking)
+    if (remainingSeconds < 60) {
+      if (lastConsumedTime > 0) {
+        toast.info("Alle Zeit wurde bereits durch Videos verbraucht");
+        handleResetTimer();
+        return;
+      }
       toast.error("Mindestens 1 Minute erforderlich");
       return;
     }
 
-    if (!timerCategory) {
+    if (!timerCategoryId) {
       toast.error("Bitte wähle eine Kategorie");
       return;
     }
 
-    const totalMinutes = Math.floor(elapsedSeconds / 60);
-    addTimeMutation.mutate({ categoryId: timerCategory, timeMinutes: totalMinutes });
+    addTimeMutation.mutate({ categoryId: timerCategoryId, timeMinutes: remainingMinutes });
   };
 
   const handleResetTimer = () => {
@@ -225,6 +278,7 @@ export const ManualTimeEntry = () => {
     setElapsedSeconds(0);
     setStartTime(null);
     setPausedElapsed(0);
+    setLastConsumedTime(0);
     localStorage.removeItem(TIMER_STORAGE_KEY);
   };
 
@@ -245,12 +299,12 @@ export const ManualTimeEntry = () => {
 
           <TabsContent value="timer" className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Starte den Timer während du lernst.
+              Starte den Timer während du lernst. Die Zeit wird automatisch für Videos verwendet, die du während des Timers anschaust.
             </p>
 
             <Select 
-              value={timerCategory} 
-              onValueChange={setTimerCategory}
+              value={timerCategoryId} 
+              onValueChange={handleCategoryChange}
               disabled={isRunning}
             >
               <SelectTrigger>
@@ -269,13 +323,28 @@ export const ManualTimeEntry = () => {
               <div className="text-5xl font-mono font-bold tracking-wider">
                 {formatTime(elapsedSeconds)}
               </div>
+              {lastConsumedTime > 0 && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <span className="text-primary">{consumedMinutes} Min</span> durch Videos verbraucht · 
+                  <span className="text-foreground font-medium"> {remainingMinutes} Min</span> übrig
+                </div>
+              )}
             </div>
+
+            {(isRunning || elapsedSeconds > 0) && (
+              <Alert className="bg-primary/10 border-primary/20">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Wenn du Videos als gesehen markierst, wird die Timer-Zeit statt der Videolänge gezählt.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="flex gap-2 justify-center">
               {!isRunning ? (
                 <Button
                   onClick={handleStartTimer}
-                  disabled={!timerCategory}
+                  disabled={!timerCategoryId}
                   className="flex-1 max-w-32"
                 >
                   <Play className="h-4 w-4 mr-2" />
@@ -294,7 +363,7 @@ export const ManualTimeEntry = () => {
               
               <Button
                 onClick={handleStopAndSave}
-                disabled={elapsedSeconds < 60 || addTimeMutation.isPending}
+                disabled={remainingSeconds < 60 || addTimeMutation.isPending}
                 variant="default"
                 className="flex-1 max-w-32"
               >
