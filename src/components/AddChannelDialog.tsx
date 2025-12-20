@@ -4,13 +4,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus } from "lucide-react";
+import { Plus, WifiOff } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export const AddChannelDialog = () => {
+  const isOffline = useOfflineStatus();
   const [open, setOpen] = useState(false);
   const [channelInput, setChannelInput] = useState("");
   const [category, setCategory] = useState("");
@@ -146,6 +149,16 @@ export const AddChannelDialog = () => {
             Füge einen YouTube-Kanal hinzu und weise ihm eine Kategorie zu
           </DialogDescription>
         </DialogHeader>
+        
+        {isOffline && (
+          <Alert variant="destructive" className="mt-2">
+            <WifiOff className="h-4 w-4" />
+            <AlertDescription>
+              Du bist offline. Neue Kanäle können nur mit Internetverbindung hinzugefügt werden.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="channelInput">Kanal-URL oder Handle</Label>
@@ -154,7 +167,7 @@ export const AddChannelDialog = () => {
               placeholder="@KanalName oder youtube.com/c/KanalName"
               value={channelInput}
               onChange={(e) => setChannelInput(e.target.value)}
-              disabled={addChannelMutation.isPending}
+              disabled={addChannelMutation.isPending || isOffline}
             />
           </div>
           <div className="space-y-2">
@@ -168,7 +181,7 @@ export const AddChannelDialog = () => {
                     size="sm"
                     variant={category === cat.category_name ? "default" : "outline"}
                     onClick={() => setCategory(category === cat.category_name ? "" : cat.category_name)}
-                    disabled={addChannelMutation.isPending}
+                    disabled={addChannelMutation.isPending || isOffline}
                   >
                     {cat.category_name}
                   </Button>
@@ -182,10 +195,10 @@ export const AddChannelDialog = () => {
           </div>
           <Button
             onClick={() => addChannelMutation.mutate({ channelInput, category })}
-            disabled={addChannelMutation.isPending || !channelInput}
+            disabled={addChannelMutation.isPending || !channelInput || isOffline}
             className="w-full"
           >
-            {addChannelMutation.isPending ? "Wird hinzugefügt..." : "Hinzufügen"}
+            {addChannelMutation.isPending ? "Wird hinzugefügt..." : isOffline ? "Offline - nicht verfügbar" : "Hinzufügen"}
           </Button>
         </div>
       </DialogContent>
