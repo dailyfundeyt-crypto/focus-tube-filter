@@ -20,29 +20,56 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data: watched, error: watchedError } = await supabase
-        .from("watched_videos")
-        .select("video_id")
-        .eq("user_id", user.id)
-        .eq("channel_id", channelId);
-
-      if (watchedError) throw watchedError;
-
-      const watchedIds = watched?.map(w => w.video_id) || [];
+      // Fetch all watched video IDs with pagination to bypass 1000 row limit
+      let allWatchedIds: string[] = [];
+      let page = 0;
+      const pageSize = 1000;
       
-      if (watchedIds.length === 0) return [];
+      while (true) {
+        const { data: watched, error: watchedError } = await supabase
+          .from("watched_videos")
+          .select("video_id")
+          .eq("user_id", user.id)
+          .eq("channel_id", channelId)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      const { data: videos, error: videosError } = await supabase
-        .from("cached_videos")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("channel_id", channelId)
-        .in("video_id", watchedIds)
-        .order("published_at", { ascending: false });
+        if (watchedError) throw watchedError;
+        
+        if (!watched || watched.length === 0) break;
+        
+        allWatchedIds.push(...watched.map(w => w.video_id));
+        
+        if (watched.length < pageSize) break;
+        page++;
+      }
+      
+      if (allWatchedIds.length === 0) return [];
 
-      if (videosError) throw videosError;
+      // Fetch all videos with pagination to bypass 1000 row limit
+      let allVideos: any[] = [];
+      page = 0;
+      
+      while (true) {
+        const { data: videos, error: videosError } = await supabase
+          .from("cached_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("channel_id", channelId)
+          .in("video_id", allWatchedIds)
+          .order("published_at", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      return videos?.map(video => ({
+        if (videosError) throw videosError;
+        
+        if (!videos || videos.length === 0) break;
+        
+        allVideos.push(...videos);
+        
+        if (videos.length < pageSize) break;
+        page++;
+      }
+
+      return allVideos.map(video => ({
         id: video.video_id,
         durationMinutes: Math.ceil((video.duration_seconds || 0) / 60),
         snippet: {
@@ -52,7 +79,7 @@ export const WatchedVideosTab = ({ channelId, channelName }: WatchedVideosTabPro
           },
           publishedAt: video.published_at || "",
         }
-      })) || [];
+      }));
     },
     enabled: !!channelId && !!user,
   });
