@@ -13,19 +13,35 @@ export const useWatchedVideos = (channelId?: string) => {
     queryKey: ["watched-videos", user?.id, channelId],
     queryFn: async () => {
       if (!user?.id) return [];
-      
-      let query = supabase
-        .from("watched_videos")
-        .select("*")
-        .eq("user_id", user.id);
-      
-      if (channelId) {
-        query = query.eq("channel_id", channelId);
+
+      const pageSize = 1000;
+      let page = 0;
+      const all: any[] = [];
+
+      while (true) {
+        let query = supabase
+          .from("watched_videos")
+          .select("video_id, channel_id, watched_at")
+          .eq("user_id", user.id);
+
+        if (channelId) {
+          query = query.eq("channel_id", channelId);
+        }
+
+        const { data, error } = await query
+          .order("watched_at", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+
+        all.push(...data);
+
+        if (data.length < pageSize) break;
+        page++;
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+
+      return all;
     },
     enabled: !!user?.id,
   });
@@ -51,11 +67,13 @@ export const useWatchedVideos = (channelId?: string) => {
       const availableTimerMinutes = isTimerActive ? getAvailableMinutes() : 0;
       
       // Track each video with its duration
-      const { data: cachedVideos } = await supabase
+      const { data: cachedVideos, error: cachedVideosError } = await supabase
         .from("cached_videos")
         .select("video_id, duration_seconds, channel_id")
         .eq("channel_id", channelId)
         .in("video_id", videosToMark);
+
+      if (cachedVideosError) throw cachedVideosError;
 
       if (cachedVideos) {
         let totalTimerMinutesUsed = 0;
@@ -139,11 +157,16 @@ export const useWatchedVideos = (channelId?: string) => {
           }
 
           // Insert watched video
-          return supabase.from("watched_videos").insert({
-            user_id: user.id,
-            video_id: video.video_id,
-            channel_id: video.channel_id,
-          });
+          const { error: watchedInsertError } = await supabase
+            .from("watched_videos")
+            .insert({
+              user_id: user.id,
+              video_id: video.video_id,
+              channel_id: video.channel_id,
+            });
+
+          if (watchedInsertError) throw watchedInsertError;
+          return null;
         });
 
         await Promise.all(trackVideoPromises);
