@@ -21,6 +21,7 @@ interface Channel {
   channel_thumbnail: string | null;
   daily_video_goal: number;
   category: string | null;
+  fetch_from_date: string | null;
 }
 
 interface ChannelListProps {
@@ -185,6 +186,7 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
           channelId={channel.channel_id}
           channelName={channel.channel_name}
           currentGoal={channel.daily_video_goal || 1}
+          currentFetchFromDate={channel.fetch_from_date}
           onGoalUpdate={() => queryClient.invalidateQueries({ queryKey: ["channels"] })}
         />
         
