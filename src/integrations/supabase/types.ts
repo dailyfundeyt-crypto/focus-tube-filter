@@ -178,6 +178,39 @@ export type Database = {
         }
         Relationships: []
       }
+      watchlist_videos: {
+        Row: {
+          added_at: string
+          duration_seconds: number | null
+          id: string
+          thumbnail: string | null
+          title: string
+          user_id: string
+          video_id: string
+          video_url: string
+        }
+        Insert: {
+          added_at?: string
+          duration_seconds?: number | null
+          id?: string
+          thumbnail?: string | null
+          title: string
+          user_id: string
+          video_id: string
+          video_url: string
+        }
+        Update: {
+          added_at?: string
+          duration_seconds?: number | null
+          id?: string
+          thumbnail?: string | null
+          title?: string
+          user_id?: string
+          video_id?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
       youtube_channels: {
         Row: {
           added_at: string

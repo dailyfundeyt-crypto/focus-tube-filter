@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChannelList } from "@/components/ChannelList";
 import { AddChannelDialog } from "@/components/AddChannelDialog";
 import { VideoGrid } from "@/components/VideoGrid";
+import { WatchlistGrid } from "@/components/WatchlistGrid";
 import { InstallPWA } from "@/components/InstallPWA";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CategoryManagement } from "@/components/CategoryManagement";
@@ -169,7 +170,7 @@ const Index = () => {
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Dashboard
               </Button>
-              {selectedChannel && (
+              {selectedChannel && selectedChannel.id !== "__watchlist__" && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -261,7 +262,9 @@ const Index = () => {
 
           {/* Main Content */}
           <main>
-            {selectedChannel ? (
+            {selectedChannel?.id === "__watchlist__" ? (
+              <WatchlistGrid />
+            ) : selectedChannel ? (
               <Tabs defaultValue="unwatched" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                   <TabsTrigger value="unwatched">Ungesehen</TabsTrigger>

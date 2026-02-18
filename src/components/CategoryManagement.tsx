@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,8 @@ interface Category {
 
 export const CategoryManagement = () => {
   const [newCategory, setNewCategory] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -78,6 +80,32 @@ export const CategoryManagement = () => {
     },
   });
 
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, oldName, newName }: { id: string; oldName: string; newName: string }) => {
+      // Update category name
+      const { error } = await supabase
+        .from("skill_categories")
+        .update({ category_name: newName })
+        .eq("id", id);
+      if (error) throw error;
+
+      // Also update all channels referencing the old category name
+      await supabase
+        .from("youtube_channels")
+        .update({ category: newName })
+        .eq("category", oldName);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skill-categories", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["channels"] });
+      toast.success("Kategorie umbenannt");
+      setEditingId(null);
+    },
+    onError: () => {
+      toast.error("Fehler beim Umbenennen");
+    },
+  });
+
   if (isLoading) {
     return <div className="text-center py-8">Lädt...</div>;
   }
@@ -117,22 +145,74 @@ export const CategoryManagement = () => {
             categories.map((category) => (
               <div
                 key={category.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                className="flex items-center justify-between p-3 rounded-lg border bg-card gap-2"
               >
-                <div>
-                  <p className="font-medium">{category.category_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {Math.floor(category.total_time_minutes / 60)}h {category.total_time_minutes % 60}m
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(category.id)}
-                  className="hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {editingId === category.id ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="h-8"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && editingName.trim()) {
+                          renameMutation.mutate({ id: category.id, oldName: category.category_name, newName: editingName.trim() });
+                        }
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => {
+                        if (editingName.trim()) {
+                          renameMutation.mutate({ id: category.id, oldName: category.category_name, newName: editingName.trim() });
+                        }
+                      }}
+                    >
+                      <Check className="h-4 w-4 text-green-500" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => setEditingId(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{category.category_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {Math.floor(category.total_time_minutes / 60)}h {category.total_time_minutes % 60}m
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingId(category.id);
+                          setEditingName(category.category_name);
+                        }}
+                        className="hover:bg-accent"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(category.id)}
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             ))
           )}
