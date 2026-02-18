@@ -24,10 +24,7 @@ serve(async (req) => {
     if (!validationResult.success) {
       return new Response(
         JSON.stringify({ error: 'Ungültige Eingabe' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
@@ -38,44 +35,43 @@ serve(async (req) => {
       console.error('YouTube API key not configured');
       return new Response(
         JSON.stringify({ error: 'Service nicht verfügbar' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    console.log('Fetching videos for channel:', channelId, 'pageToken:', pageToken);
-
-    // Get uploads playlist for the channel
-    const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YOUTUBE_API_KEY}`;
-    const channelResp = await fetch(channelUrl);
-    if (!channelResp.ok) {
-      const errorData = await channelResp.text();
-      console.error('YouTube API (channels) error:', errorData);
-      return new Response(
-        JSON.stringify({ error: 'Kanal konnte nicht geladen werden' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404 
-        }
-      );
+    // Determine the playlist ID - either it IS a playlist (starts with PL) or we need to look up the uploads playlist
+    let playlistId: string;
+    
+    if (channelId.startsWith('PL')) {
+      // Direct playlist ID
+      playlistId = channelId;
+      console.log('Using direct playlist ID:', playlistId);
+    } else {
+      // Get uploads playlist for the channel
+      console.log('Fetching uploads playlist for channel:', channelId);
+      const channelUrl = `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YOUTUBE_API_KEY}`;
+      const channelResp = await fetch(channelUrl);
+      if (!channelResp.ok) {
+        const errorData = await channelResp.text();
+        console.error('YouTube API (channels) error:', errorData);
+        return new Response(
+          JSON.stringify({ error: 'Kanal konnte nicht geladen werden' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+      const channelData = await channelResp.json();
+      playlistId = channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+      if (!playlistId) {
+        console.error('Uploads playlist not found for channel:', channelId);
+        return new Response(
+          JSON.stringify({ error: 'Videos konnten nicht geladen werden' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
     }
-    const channelData = await channelResp.json();
-    const uploadsPlaylistId = channelData?.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-    if (!uploadsPlaylistId) {
-      console.error('Uploads playlist not found for channel:', channelId);
-      return new Response(
-        JSON.stringify({ error: 'Videos konnten nicht geladen werden' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 404 
-        }
-      );
-    }
 
-    // Fetch playlist items (this returns ALL uploads over multiple pages)
-    let playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?key=${YOUTUBE_API_KEY}&playlistId=${uploadsPlaylistId}&part=contentDetails,snippet&maxResults=50`;
+    // Fetch playlist items
+    let playlistUrl = `https://www.googleapis.com/youtube/v3/playlistItems?key=${YOUTUBE_API_KEY}&playlistId=${playlistId}&part=contentDetails,snippet&maxResults=50`;
     if (pageToken) {
       playlistUrl += `&pageToken=${pageToken}`;
     }
@@ -86,10 +82,7 @@ serve(async (req) => {
       console.error('YouTube API (playlistItems) error:', errorData);
       return new Response(
         JSON.stringify({ error: 'Videos konnten nicht geladen werden' }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
@@ -97,7 +90,6 @@ serve(async (req) => {
     const nextPageToken = playlistData.nextPageToken || null;
     console.log(`Playlist items: ${playlistData.items?.length || 0}, nextPageToken: ${nextPageToken}`);
 
-    // Extract video IDs
     const ids = (playlistData.items || [])
       .map((item: any) => item?.contentDetails?.videoId)
       .filter(Boolean);
@@ -117,11 +109,11 @@ serve(async (req) => {
 
     console.log(`Got details for ${detailsData.items?.length || 0} videos`);
 
-    // Filter: nur 16:9 (keine vertikalen Shorts), keine Längenbeschränkung
+    // Filter: nur 16:9 (keine vertikalen Shorts)
     const isLandscape = (thumb?: { width?: number; height?: number }) => {
-      if (!thumb?.width || !thumb?.height) return true; // wenn unbekannt, behalten
+      if (!thumb?.width || !thumb?.height) return true;
       const ratio = thumb.width / thumb.height;
-      return ratio >= 1.6; // enger auf 16:9 ausrichten
+      return ratio >= 1.6;
     };
 
     const pickThumb = (thumbs: any) =>
@@ -137,19 +129,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ videos: filteredVideos, nextPageToken }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
     console.error('Error in youtube-videos function:', error);
     return new Response(
       JSON.stringify({ error: 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.' }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

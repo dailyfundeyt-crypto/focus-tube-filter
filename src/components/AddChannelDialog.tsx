@@ -139,14 +139,14 @@ export const AddChannelDialog = () => {
       <DialogTrigger asChild>
         <Button className="w-full gap-2">
           <Plus className="h-4 w-4" />
-          Kanal hinzufügen
+          Kanal / Playlist hinzufügen
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>YouTube-Kanal hinzufügen</DialogTitle>
+          <DialogTitle>Kanal oder Playlist hinzufügen</DialogTitle>
           <DialogDescription>
-            Füge einen YouTube-Kanal hinzu und weise ihm eine Kategorie zu
+            Füge einen YouTube-Kanal oder eine Playlist hinzu und weise eine Kategorie zu
           </DialogDescription>
         </DialogHeader>
         
@@ -161,10 +161,10 @@ export const AddChannelDialog = () => {
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="channelInput">Kanal-URL oder Handle</Label>
+            <Label htmlFor="channelInput">Kanal-URL, Handle oder Playlist-Link</Label>
             <Input
               id="channelInput"
-              placeholder="@KanalName oder youtube.com/c/KanalName"
+              placeholder="@KanalName, youtube.com/c/... oder Playlist-URL"
               value={channelInput}
               onChange={(e) => setChannelInput(e.target.value)}
               disabled={addChannelMutation.isPending || isOffline}
