@@ -2,10 +2,19 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, Copy, Check } from "lucide-react";
+import { Eye, EyeOff, Copy, Check, Bookmark } from "lucide-react";
 import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface VideoCardProps {
   video: {
@@ -38,9 +47,62 @@ export const VideoCard = ({
   const { isWatched, toggleWatched } = useWatchedVideos(channelId);
   const watched = isWatched(video.id);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
 
   const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+
+  // Fetch categories for save-to-folder
+  const { data: categories = [] } = useQuery({
+    queryKey: ["skill-categories", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("skill_categories")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("category_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const saveToFolderMutation = useMutation({
+    mutationFn: async (category: string | null) => {
+      if (!user) throw new Error("Nicht angemeldet");
+
+      // Fetch title/thumbnail via oEmbed
+      let title = video.snippet.title;
+      let thumbnail = video.snippet.thumbnails.medium.url;
+
+      const { error } = await supabase.from("watchlist_videos").insert({
+        user_id: user.id,
+        video_id: video.id,
+        title,
+        thumbnail,
+        video_url: videoUrl,
+        category,
+      });
+
+      if (error) {
+        if (error.code === "23505") throw new Error("Video bereits gespeichert");
+        throw error;
+      }
+      return { title, category };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["watchlist-videos"] });
+      toast({
+        title: `"${data.title}" gespeichert`,
+        description: data.category ? `In Ordner: ${data.category}` : "In Später ansehen",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: error.message, variant: "destructive" });
+    },
+  });
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -147,6 +209,30 @@ export const VideoCard = ({
               </>
             )}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={() => saveToFolderMutation.mutate(null)}>
+                📌 Später ansehen
+              </DropdownMenuItem>
+              {categories.map((cat) => (
+                <DropdownMenuItem
+                  key={cat.id}
+                  onClick={() => saveToFolderMutation.mutate(cat.category_name)}
+                >
+                  📁 {cat.category_name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </Card>

@@ -9,7 +9,11 @@ import { Trash2, Play } from "lucide-react";
 import { AddWatchlistVideo } from "./AddWatchlistVideo";
 import { toast } from "sonner";
 
-export const WatchlistGrid = () => {
+interface WatchlistGridProps {
+  category?: string | null; // null = "Später ansehen", string = specific folder
+}
+
+export const WatchlistGrid = ({ category = null }: WatchlistGridProps) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedVideo, setSelectedVideo] = useState<{
@@ -18,14 +22,22 @@ export const WatchlistGrid = () => {
   } | null>(null);
 
   const { data: videos, isLoading } = useQuery({
-    queryKey: ["watchlist-videos", user?.id],
+    queryKey: ["watchlist-videos", user?.id, category],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("watchlist_videos")
         .select("*")
         .eq("user_id", user.id)
         .order("added_at", { ascending: false });
+
+      if (category === null) {
+        query = query.is("category", null);
+      } else {
+        query = query.eq("category", category);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -42,6 +54,9 @@ export const WatchlistGrid = () => {
       toast.success("Video entfernt");
     },
   });
+
+  const title = category ? `📁 ${category}` : "📌 Später ansehen";
+  const subtitle = category ? "Gespeicherte Videos" : "Deine Watchlist";
 
   if (isLoading) {
     return (
@@ -60,18 +75,22 @@ export const WatchlistGrid = () => {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">📌 Später ansehen</h2>
+          <h2 className="text-2xl font-bold text-foreground">{title}</h2>
           <p className="text-muted-foreground">
-            {videos?.length || 0} {(videos?.length || 0) === 1 ? "Video" : "Videos"} in deiner Watchlist
+            {videos?.length || 0} {(videos?.length || 0) === 1 ? "Video" : "Videos"} – {subtitle}
           </p>
         </div>
-        <AddWatchlistVideo />
+        {category === null && <AddWatchlistVideo />}
       </div>
 
       {!videos || videos.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p>Noch keine Videos in der Watchlist</p>
-          <p className="text-sm mt-2">Füge YouTube-Links hinzu, die du später ansehen möchtest</p>
+          <p>Noch keine Videos gespeichert</p>
+          <p className="text-sm mt-2">
+            {category
+              ? "Speichere Videos über das Bookmark-Icon auf Videokarten"
+              : "Füge YouTube-Links hinzu, die du später ansehen möchtest"}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
@@ -118,7 +137,7 @@ export const WatchlistGrid = () => {
         videoId={selectedVideo?.id || null}
         videoTitle={selectedVideo?.title || ""}
         channelId="watchlist"
-        channelName="Später ansehen"
+        channelName={category || "Später ansehen"}
         durationMinutes={0}
         onClose={() => setSelectedVideo(null)}
         onVideoEnd={() => setSelectedVideo(null)}

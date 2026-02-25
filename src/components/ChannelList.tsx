@@ -25,7 +25,7 @@ interface Channel {
 }
 
 interface ChannelListProps {
-  onChannelSelect: (channelId: string, channelName: string) => void;
+  onChannelSelect: (channelId: string, channelName: string, category?: string | null) => void;
   selectedChannelId: string | null;
 }
 
@@ -144,7 +144,7 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
           ? "bg-primary/10 border border-primary/30"
           : ""
       }`}
-      onClick={() => onChannelSelect(channel.channel_id, channel.channel_name)}
+      onClick={() => onChannelSelect(channel.channel_id, channel.channel_name, channel.category)}
     >
       {channel.channel_thumbnail ? (
         <img

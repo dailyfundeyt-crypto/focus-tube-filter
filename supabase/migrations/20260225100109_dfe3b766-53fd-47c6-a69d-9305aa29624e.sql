@@ -1,0 +1,1 @@
+ALTER TABLE public.watchlist_videos ADD COLUMN category text DEFAULT null;
