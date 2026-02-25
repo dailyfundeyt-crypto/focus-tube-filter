@@ -39,6 +39,7 @@ const Index = () => {
   const [selectedChannel, setSelectedChannel] = useState<{
     id: string;
     name: string;
+    category?: string | null;
   } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUpdatingDurations, setIsUpdatingDurations] = useState(false);
@@ -229,7 +230,7 @@ const Index = () => {
           <aside className="space-y-4 hidden lg:block">
             <AddChannelDialog />
             <ChannelList
-              onChannelSelect={(id, name) => setSelectedChannel({ id, name })}
+              onChannelSelect={(id, name, category) => setSelectedChannel({ id, name, category })}
               selectedChannelId={selectedChannel?.id || null}
             />
           </aside>
@@ -250,8 +251,8 @@ const Index = () => {
                 <div className="mt-4 space-y-4">
                   <AddChannelDialog />
                   <ChannelList
-                    onChannelSelect={(id, name) => {
-                      setSelectedChannel({ id, name });
+                    onChannelSelect={(id, name, category) => {
+                      setSelectedChannel({ id, name, category });
                     }}
                     selectedChannelId={selectedChannel?.id || null}
                   />
@@ -263,12 +264,13 @@ const Index = () => {
           {/* Main Content */}
           <main>
             {selectedChannel?.id === "__watchlist__" ? (
-              <WatchlistGrid />
+              <WatchlistGrid category={null} />
             ) : selectedChannel ? (
               <Tabs defaultValue="unwatched" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
                   <TabsTrigger value="unwatched">Ungesehen</TabsTrigger>
                   <TabsTrigger value="watched">Gesehen</TabsTrigger>
+                  <TabsTrigger value="saved">Gespeichert</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="unwatched">
@@ -277,6 +279,10 @@ const Index = () => {
                 
                 <TabsContent value="watched">
                   <WatchedVideosTab channelId={selectedChannel.id} channelName={selectedChannel.name} />
+                </TabsContent>
+
+                <TabsContent value="saved">
+                  <WatchlistGrid category={selectedChannel.category || null} />
                 </TabsContent>
               </Tabs>
             ) : (

@@ -181,6 +181,7 @@ export type Database = {
       watchlist_videos: {
         Row: {
           added_at: string
+          category: string | null
           duration_seconds: number | null
           id: string
           thumbnail: string | null
@@ -191,6 +192,7 @@ export type Database = {
         }
         Insert: {
           added_at?: string
+          category?: string | null
           duration_seconds?: number | null
           id?: string
           thumbnail?: string | null
@@ -201,6 +203,7 @@ export type Database = {
         }
         Update: {
           added_at?: string
+          category?: string | null
           duration_seconds?: number | null
           id?: string
           thumbnail?: string | null
