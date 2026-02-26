@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Trash2, ChevronRight, FolderClosed, FolderOpen, Pin } from "lucide-react";
+import { Trash2, ChevronRight, FolderClosed, FolderOpen, Pin, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelGoalSettings } from "./ChannelGoalSettings";
 import { useState } from "react";
@@ -280,6 +280,24 @@ export const ChannelList = ({ onChannelSelect, selectedChannelId }: ChannelListP
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">📌 Später ansehen</p>
           <p className="text-xs text-muted-foreground">Deine Watchlist</p>
+        </div>
+      </div>
+
+      {/* Tools pinned item */}
+      <div
+        className={`flex items-center gap-3 p-2.5 rounded-lg transition-all cursor-pointer hover:bg-accent/50 ${
+          selectedChannelId === "__tools__"
+            ? "bg-primary/10 border border-primary/30"
+            : ""
+        }`}
+        onClick={() => onChannelSelect("__tools__", "Tools")}
+      >
+        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Wrench className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">🛠️ Tools</p>
+          <p className="text-xs text-muted-foreground">Gespeicherte Links</p>
         </div>
       </div>
 
