@@ -3,24 +3,45 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Link } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
-function extractVideoId(input: string): string | null {
+type VideoSource = "youtube" | "x";
+
+interface ParsedVideo {
+  source: VideoSource;
+  videoId: string;
+  videoUrl: string;
+}
+
+function parseVideoInput(input: string): ParsedVideo | null {
+  const trimmed = input.trim();
+
+  // X/Twitter: https://x.com/user/status/123 or https://twitter.com/user/status/123
+  const xMatch = trimmed.match(/(?:https?:\/\/)?(?:www\.)?(?:x\.com|twitter\.com)\/([^/]+)\/status\/(\d+)/);
+  if (xMatch) {
+    return {
+      source: "x",
+      videoId: `x-${xMatch[2]}`,
+      videoUrl: `https://x.com/${xMatch[1]}/status/${xMatch[2]}`,
+    };
+  }
+
   // youtube.com/watch?v=ID
-  const watchMatch = input.match(/[?&]v=([A-Za-z0-9_-]{11})/);
-  if (watchMatch) return watchMatch[1];
+  const watchMatch = trimmed.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  if (watchMatch) return { source: "youtube", videoId: watchMatch[1], videoUrl: `https://www.youtube.com/watch?v=${watchMatch[1]}` };
   // youtu.be/ID
-  const shortMatch = input.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
-  if (shortMatch) return shortMatch[1];
+  const shortMatch = trimmed.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
+  if (shortMatch) return { source: "youtube", videoId: shortMatch[1], videoUrl: `https://www.youtube.com/watch?v=${shortMatch[1]}` };
   // youtube.com/embed/ID
-  const embedMatch = input.match(/embed\/([A-Za-z0-9_-]{11})/);
-  if (embedMatch) return embedMatch[1];
+  const embedMatch = trimmed.match(/embed\/([A-Za-z0-9_-]{11})/);
+  if (embedMatch) return { source: "youtube", videoId: embedMatch[1], videoUrl: `https://www.youtube.com/watch?v=${embedMatch[1]}` };
   // Raw video ID
-  if (/^[A-Za-z0-9_-]{11}$/.test(input.trim())) return input.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return { source: "youtube", videoId: trimmed, videoUrl: `https://www.youtube.com/watch?v=${trimmed}` };
+
   return null;
 }
 
@@ -34,32 +55,51 @@ export const AddWatchlistVideo = () => {
     mutationFn: async (input: string) => {
       if (!user) throw new Error("Nicht angemeldet");
 
-      const videoId = extractVideoId(input);
-      if (!videoId) throw new Error("Ungültiger YouTube-Link");
+      const parsed = parseVideoInput(input);
+      if (!parsed) throw new Error("Ungültiger YouTube- oder X-Link");
 
-      // Fetch video info from YouTube oEmbed (no API key needed)
-      let title = `Video ${videoId}`;
-      let thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+      let title = `Video ${parsed.videoId}`;
+      let thumbnail: string | null = null;
 
-      try {
-        const oembedResp = await fetch(
-          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-        );
-        if (oembedResp.ok) {
-          const oembedData = await oembedResp.json();
-          title = oembedData.title || title;
-          thumbnail = oembedData.thumbnail_url || thumbnail;
+      if (parsed.source === "youtube") {
+        thumbnail = `https://img.youtube.com/vi/${parsed.videoId}/mqdefault.jpg`;
+        try {
+          const oembedResp = await fetch(
+            `https://www.youtube.com/oembed?url=${parsed.videoUrl}&format=json`
+          );
+          if (oembedResp.ok) {
+            const oembedData = await oembedResp.json();
+            title = oembedData.title || title;
+            thumbnail = oembedData.thumbnail_url || thumbnail;
+          }
+        } catch {
+          // Fall back to defaults
         }
-      } catch {
-        // Fall back to defaults
+      } else if (parsed.source === "x") {
+        title = `X Post ${parsed.videoId.replace("x-", "")}`;
+        // Try to get title from publish.twitter.com oEmbed
+        try {
+          const oembedResp = await fetch(
+            `https://publish.twitter.com/oembed?url=${encodeURIComponent(parsed.videoUrl)}`
+          );
+          if (oembedResp.ok) {
+            const oembedData = await oembedResp.json();
+            // Extract text from HTML author_name
+            title = oembedData.author_name
+              ? `${oembedData.author_name}: Post`
+              : title;
+          }
+        } catch {
+          // Fall back to defaults
+        }
       }
 
       const { error } = await supabase.from("watchlist_videos").insert({
         user_id: user.id,
-        video_id: videoId,
+        video_id: parsed.videoId,
         title,
         thumbnail,
-        video_url: `https://www.youtube.com/watch?v=${videoId}`,
+        video_url: parsed.videoUrl,
       });
 
       if (error) {
@@ -92,15 +132,15 @@ export const AddWatchlistVideo = () => {
         <DialogHeader>
           <DialogTitle>Video zur Watchlist hinzufügen</DialogTitle>
           <DialogDescription>
-            Füge einen YouTube-Link hinzu, den du später ansehen möchtest
+            Füge einen YouTube- oder X/Twitter-Link hinzu, den du später ansehen möchtest
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="videoUrl">YouTube-Link</Label>
+            <Label htmlFor="videoUrl">Video-Link</Label>
             <Input
               id="videoUrl"
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="YouTube- oder X-Link einfügen..."
               value={videoInput}
               onChange={(e) => setVideoInput(e.target.value)}
               disabled={addVideoMutation.isPending}

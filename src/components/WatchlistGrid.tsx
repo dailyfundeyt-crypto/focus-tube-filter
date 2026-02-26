@@ -94,42 +94,65 @@ export const WatchlistGrid = ({ category = null }: WatchlistGridProps) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {videos.map((video) => (
-            <Card
-              key={video.id}
-              className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg border-border"
-              onClick={() => setSelectedVideo({ id: video.video_id, title: video.title })}
-            >
-              <div className="relative">
-                <img
-                  src={video.thumbnail || `https://img.youtube.com/vi/${video.video_id}/mqdefault.jpg`}
-                  alt={video.title}
-                  className="w-full aspect-video object-cover"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <Play className="h-12 w-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          {videos.map((video) => {
+            const isXVideo = video.video_id.startsWith("x-");
+            return (
+              <Card
+                key={video.id}
+                className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg border-border"
+                onClick={() => {
+                  if (isXVideo) {
+                    window.open(video.video_url, "_blank", "noopener,noreferrer");
+                  } else {
+                    setSelectedVideo({ id: video.video_id, title: video.title });
+                  }
+                }}
+              >
+                <div className="relative">
+                  {isXVideo ? (
+                    <div className="w-full aspect-video bg-muted flex items-center justify-center">
+                      <div className="text-center space-y-2">
+                        <span className="text-3xl font-bold text-foreground">𝕏</span>
+                        <p className="text-xs text-muted-foreground px-4 line-clamp-2">{video.title}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={video.thumbnail || `https://img.youtube.com/vi/${video.video_id}/mqdefault.jpg`}
+                      alt={video.title}
+                      className="w-full aspect-video object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <Play className="h-12 w-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 space-y-3">
-                <h3 className="font-medium line-clamp-2 text-foreground">{video.title}</h3>
-                <p className="text-xs text-muted-foreground">
-                  Hinzugefügt: {new Date(video.added_at).toLocaleDateString("de-DE")}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteMutation.mutate(video.id);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Entfernen
-                </Button>
-              </div>
-            </Card>
-          ))}
+                <div className="p-4 space-y-3">
+                  <h3 className="font-medium line-clamp-2 text-foreground">{video.title}</h3>
+                  <div className="flex items-center gap-2">
+                    {isXVideo && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">X</span>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Hinzugefügt: {new Date(video.added_at).toLocaleDateString("de-DE")}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMutation.mutate(video.id);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Entfernen
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
