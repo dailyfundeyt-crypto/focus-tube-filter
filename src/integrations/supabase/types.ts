@@ -127,6 +127,33 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_links: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       skill_categories: {
         Row: {
           category_name: string
