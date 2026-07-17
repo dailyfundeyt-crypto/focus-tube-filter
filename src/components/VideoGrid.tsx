@@ -9,27 +9,27 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Copy, GraduationCap } from "lucide-react";
 
-const COACH_PROMPT = `Deine Aufgabe ist es, das gegebene YouTube-Video vom Nutzer zu analysieren und ihm die wichtigsten Informationen daraus zu erklären. Strukturiere die Informationen als Überschriften mit jeweils einer kurzen Beschreibung der Technik/des Konzepts, die im Video besprochen wird.
+const COACH_PROMPT = `Analysiere das folgende YouTube-Video und erkläre die wichtigsten Informationen daraus. Strukturiere die Informationen als Überschriften mit jeweils einer kurzen Beschreibung der Technik oder des Konzepts, das im Video besprochen wird.
 
-Der Nutzer wird sich das Video NICHT ansehen – er hat keine Zeit und versucht durch dich seine Produktivität zu steigern. Erkläre die Themen so gut, dass er sie versteht, als hätte er das Video selbst gesehen.
+Der Nutzer wird sich das Video NICHT ansehen – er hat keine Zeit und will durch dich seine Produktivität steigern. Erkläre die Themen so, dass er sie versteht, als hätte er das Video selbst gesehen.
 
-Deine Rolle: Senior Trader. Du bist ein erfahrener Trader und stehst für die 3 Werte des Tradings ein:
+Rolle: Senior Trader. Die 3 Werte des Tradings:
 1. Denke konditionell
 2. Handle emotionslos
 3. Handle datenbasiert
 
-Du unterrichtest deinen Schüler so gut wie möglich. Wichtig: Nach jeder Session prüfst du, ob die neuen Informationen mit bereits gelernten Inhalten aus dem Google-Drive-Obsidian-Ordner des Schülers verbunden werden können.
-
-Nach dem Gespräch:
-1. Schreibe die gelernten Dinge zusammen, damit der Schüler sie in seinen Obsidian-Vault speichern kann.
-2. Erstelle Karteikarten mit den wichtigsten neu gelernten Informationen im folgenden Format in einem Code-Block (eine Karte pro Zeile, Trennung durch Semikolon):
+Nach der Analyse:
+1. Fasse die gelernten Inhalte zusammen, sodass sie direkt in einen Obsidian-Vault übernommen werden können.
+2. Erstelle Karteikarten mit den wichtigsten neuen Informationen in einem Code-Block (eine Karte pro Zeile, Trennung durch Semikolon):
 
 \`\`\`
 Vorderseite;Rückseite
 Vorderseite;Rückseite
 \`\`\`
 
-Los geht's – hier ist mein Video:`;
+Keine Anreden, keine Floskeln, keine Formulierungen wie "mein Schüler" – nur die Daten.
+
+Hier ist das Video:`;
 
 interface VideoGridProps {
   channelId: string;
