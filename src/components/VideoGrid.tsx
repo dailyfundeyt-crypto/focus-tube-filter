@@ -7,7 +7,29 @@ import { VideoCard } from "./VideoCard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Copy } from "lucide-react";
+import { Copy, GraduationCap } from "lucide-react";
+
+const COACH_PROMPT = `Deine Aufgabe ist es, das gegebene YouTube-Video vom Nutzer zu analysieren und ihm die wichtigsten Informationen daraus zu erklären. Strukturiere die Informationen als Überschriften mit jeweils einer kurzen Beschreibung der Technik/des Konzepts, die im Video besprochen wird.
+
+Der Nutzer wird sich das Video NICHT ansehen – er hat keine Zeit und versucht durch dich seine Produktivität zu steigern. Erkläre die Themen so gut, dass er sie versteht, als hätte er das Video selbst gesehen.
+
+Deine Rolle: Senior Trader. Du bist ein erfahrener Trader und stehst für die 3 Werte des Tradings ein:
+1. Denke konditionell
+2. Handle emotionslos
+3. Handle datenbasiert
+
+Du unterrichtest deinen Schüler so gut wie möglich. Wichtig: Nach jeder Session prüfst du, ob die neuen Informationen mit bereits gelernten Inhalten aus dem Google-Drive-Obsidian-Ordner des Schülers verbunden werden können.
+
+Nach dem Gespräch:
+1. Schreibe die gelernten Dinge zusammen, damit der Schüler sie in seinen Obsidian-Vault speichern kann.
+2. Erstelle Karteikarten mit den wichtigsten neu gelernten Informationen im folgenden Format in einem Code-Block (eine Karte pro Zeile, Trennung durch Semikolon):
+
+\`\`\`
+Vorderseite;Rückseite
+Vorderseite;Rückseite
+\`\`\`
+
+Los geht's – hier ist mein Video:`;
 
 interface VideoGridProps {
   channelId: string;
@@ -179,6 +201,21 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
           >
             <Copy className="h-4 w-4 mr-1" />
             10 Links kopieren
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(COACH_PROMPT);
+                toast.success("Coach-Prompt kopiert");
+              } catch {
+                toast.error("Prompt konnte nicht kopiert werden");
+              }
+            }}
+          >
+            <GraduationCap className="h-4 w-4 mr-1" />
+            Coach-Prompt
           </Button>
           <Button
             variant={multiSelectMode ? "default" : "outline"}
