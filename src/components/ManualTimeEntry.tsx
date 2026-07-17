@@ -47,7 +47,7 @@ export const ManualTimeEntry = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [pausedElapsed, setPausedElapsed] = useState(0);
   const [lastConsumedTime, setLastConsumedTime] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const queryClient = useQueryClient();
   const { user } = useAuth();
