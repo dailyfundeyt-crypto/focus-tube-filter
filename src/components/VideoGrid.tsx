@@ -203,6 +203,21 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
             10 Links kopieren
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(COACH_PROMPT);
+                toast.success("Coach-Prompt kopiert");
+              } catch {
+                toast.error("Prompt konnte nicht kopiert werden");
+              }
+            }}
+          >
+            <GraduationCap className="h-4 w-4 mr-1" />
+            Coach-Prompt
+          </Button>
+          <Button
             variant={multiSelectMode ? "default" : "outline"}
             size="sm"
             onClick={handleToggleMultiSelect}
