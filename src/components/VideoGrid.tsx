@@ -6,6 +6,8 @@ import { useWatchedVideos } from "@/hooks/useWatchedVideos";
 import { VideoCard } from "./VideoCard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { Copy } from "lucide-react";
 
 interface VideoGridProps {
   channelId: string;
@@ -136,16 +138,48 @@ export const VideoGrid = ({ channelId, channelName }: VideoGridProps) => {
     setSelectedVideos(new Set());
   };
 
+  const handleCopyNextTenAndMarkWatched = async () => {
+    const nextTen = unwatchedVideos.slice(0, 10);
+    if (nextTen.length === 0) return;
+
+    const links = nextTen
+      .map((v) => `https://www.youtube.com/watch?v=${v.video_id}`)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(links);
+    } catch {
+      toast.error("Links konnten nicht kopiert werden");
+      return;
+    }
+
+    nextTen.forEach((v) => {
+      const durationMinutes = Math.ceil((v.duration_seconds || 0) / 60);
+      markAsWatched(v.video_id, channelId, [], durationMinutes);
+    });
+
+    toast.success(`${nextTen.length} Links kopiert & als gesehen markiert`);
+  };
+
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold text-foreground">{channelName}</h2>
           <p className="text-muted-foreground">
             {videosAsApiFormat.length} ungesehene {videosAsApiFormat.length === 1 ? "Video" : "Videos"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyNextTenAndMarkWatched}
+            disabled={unwatchedVideos.length === 0}
+          >
+            <Copy className="h-4 w-4 mr-1" />
+            10 Links kopieren
+          </Button>
           <Button
             variant={multiSelectMode ? "default" : "outline"}
             size="sm"
